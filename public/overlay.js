@@ -224,9 +224,12 @@ if (host) {
     if (d && d.type === 'save' && d.data) {
       try {
         const r = SaveGame.read(Uint8Array.from(atob(d.data), c => c.charCodeAt(0)));
+        // Le jeu enregistre toutes les quelques secondes : on n'écrit (et on ne redessine) que si le personnage a vraiment changé,
+        // sinon la fenêtre principale du Compagnon se redessinerait à chaque sauvegarde (clignotement).
+        const before = data.game ? JSON.stringify(data.game.nodes) + '|' + data.game.level + '|' + data.game.name : '';
         data.game = { name: r.name, level: r.level, xp: r.xp, nodes: r.nodes, file: d.file, at: d.mtime || Date.now() };
         if (r.level) data.level = r.level;
-        save(['game', 'level']); render();
+        if (before !== JSON.stringify(r.nodes) + '|' + r.level + '|' + r.name) { save(['game', 'level']); render(); }
       } catch { /* sauvegarde illisible : on garde l'état actuel */ }
       return;
     }

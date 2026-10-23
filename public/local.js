@@ -91,13 +91,14 @@ window.Local = (() => {
     if (!Profil.exists() || !c) { box.hidden = true; return; }
     box.hidden = false;
     const others = Object.entries(p.chars).filter(([id]) => id !== p.active);
-    box.innerHTML = `<button class="cs-cur" data-act="csToggle" title="Changer de personnage">
+    const html = `<button class="cs-cur" data-act="csToggle" title="Changer de personnage">
         <i class="gi gi-visored-helm"></i><span><b>${esc(c.name)}</b><small>Niveau ${esc(c.level || '?')}</small></span><i class="gi gi-cycle cs-arrow"></i></button>
       <div class="cs-menu" hidden>
         ${others.map(([id, o]) => `<button data-act="csPick" data-arg="${esc(id)}"><b>${esc(o.name)}</b><small>Niveau ${esc(o.level || '?')}${o.at ? ' · joué ' + esc(ago(o.at)) : ''}</small></button>`).join('')
           || '<div class="small muted" style="padding:8px 10px">Aucun autre personnage trouvé.</div>'}
         <button data-go="settings" class="cs-set"><i class="gi gi-cog"></i> Paramètres</button>
       </div>`;
+    if (box.dataset.h !== html) { box.innerHTML = html; box.dataset.h = html; }
   }
 
   // ---------- Récupération des données de l'ancien serveur ----------
@@ -230,7 +231,7 @@ window.Local = (() => {
     };
     document.addEventListener('click', e => { const m = $('#charSw .cs-menu'); if (m && !m.hidden && !e.target.closest('#charSw')) m.hidden = true; });
     // L'overlay modifie la liste de farm ou les mémos : on recharge
-    window.addEventListener('storage', e => { if (e.key && Profil.active() && e.key.startsWith('ens.c.' + Profil.active() + '.')) { loadState(); if (!['welcome', 'settings'].includes(state.view)) render(); } });
+    window.addEventListener('storage', e => { if (e.key && Profil.active() && e.key.startsWith('ens.c.' + Profil.active() + '.') && e.oldValue !== e.newValue && !/\.(game|level)$/.test(e.key)) { loadState(); if (!['welcome', 'settings', 'carte'].includes(state.view)) rerenderKeepScroll(); } });
     if (appHost) appHost.addEventListener('message', e => { if (e.data && e.data.type) onHost(e.data); });
     document.querySelectorAll('[data-local]').forEach(el => { el.hidden = false; });
   }
