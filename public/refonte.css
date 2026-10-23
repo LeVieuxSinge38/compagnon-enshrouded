@@ -37,7 +37,10 @@ h2::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg
 .subnav { gap: 6px; }
 .subnav a { border-radius: 999px !important; padding: 7px 15px !important; transition: background .25s, color .25s, box-shadow .25s, transform .2s var(--ease); }
 .subnav a:hover { transform: translateY(-1px); }
-.subnav a.on { box-shadow: 0 0 16px rgba(143,208,245,.25), inset 0 0 0 1px var(--flame); }
+.subnav a { background: rgba(143,208,245,.08); border: 1px solid rgba(143,208,245,.28); color: #dbe9f5 !important; font-size: 15px !important; font-weight: 600; }
+.subnav a:hover { background: rgba(143,208,245,.18) !important; border-color: rgba(143,208,245,.6); color: #fff !important; }
+.subnav a.on { background: linear-gradient(180deg, #8fd0f5, #5fb3e6) !important; border-color: #b9e3fa; color: #0b1424 !important; box-shadow: 0 0 18px rgba(143,208,245,.45) !important; }
+.subnav a .gi { opacity: 1; }
 .subnav a .gi { margin-right: 4px; }
 
 /* ---------- Pages : la nouvelle page monte en douceur, ses blocs apparaissent l'un après l'autre ---------- */
