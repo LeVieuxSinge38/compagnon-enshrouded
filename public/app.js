@@ -639,6 +639,7 @@ function treeSvg() {
     let cls = 'te', style = '';
     if (have.has(a) && have.has(b) && stepOf[a].total <= avail && stepOf[b].total <= avail) {
       cls += ' te-on';
+      style = ` style="stroke:${ST.color(b)}"`;
     }
     edges += `<line class="${cls}"${style} x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>`;
   }
