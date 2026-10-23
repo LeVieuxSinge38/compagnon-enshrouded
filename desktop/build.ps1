@@ -66,6 +66,7 @@ foreach ($f in $files) { Copy-Item (Join-Path $build $f) $out -Force }
 $zip = Join-Path $out 'CompagnonEnshrouded.zip'
 if (Test-Path $zip) { Remove-Item $zip }
 Compress-Archive -Path ($files | ForEach-Object { Join-Path $build $_ }) -DestinationPath $zip
+Compress-Archive -Path (Join-Path $here 'LISEZ-MOI.txt') -DestinationPath $zip -Update
 # JSON en UTF-8 sans BOM (lu par l'appli)
 $json = [ordered]@{ version = $version; notes = $Notes; highlights = @($Highlights -split '\|' | ForEach-Object { $_.Trim() } | Where-Object { $_ }); files = $files; web = 'web.zip' } | ConvertTo-Json
 [IO.File]::WriteAllText((Join-Path $out 'desktop.json'), $json, (New-Object Text.UTF8Encoding $false))

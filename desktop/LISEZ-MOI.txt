@@ -1,0 +1,119 @@
+LISEZ-MOI
+=========
+
+Bienvenue dans le Compagnon Enshrouded.
+Cette appli est gratuite et fonctionne sur Windows.
+Voici tout ce que tu dois savoir avant de l'utiliser.
+
+
+POURQUOI WINDOWS T'AVERTIT
+==========================
+
+Le Compagnon est fait par un particulier.
+Il n'a pas de certificat de signature payant.
+C'est pour ça que Windows te met en garde.
+Ce n'est pas un virus.
+Le code source est public et vérifiable ici :
+https://github.com/LeVieuxSinge38/compagnon-enshrouded
+
+
+AVANT DE DEZIPPER (RECOMMANDE)
+==============================
+
+Cela évite l'avertissement au lancement.
+
+1. Clic droit sur CompagnonEnshrouded.zip
+2. Choisis "Propriétés"
+3. En bas de la fenêtre, coche "Débloquer"
+4. Clique sur "OK"
+5. Refais un clic droit sur le zip
+6. Choisis "Extraire tout"
+
+
+ECRAN BLEU "WINDOWS A PROTEGE VOTRE ORDINATEUR"
+===============================================
+
+Si cet écran apparaît au lancement :
+
+1. Clique sur "Informations complémentaires"
+2. Puis clique sur "Exécuter quand même"
+
+C'est tout. L'appli se lancera normalement.
+
+
+BLOQUE SANS BOUTON (SMART APP CONTROL)
+======================================
+
+Sur Windows 11, le "Contrôle intelligent des
+applications" peut bloquer l'appli sans proposer
+de bouton pour continuer.
+
+Dans ce cas, le Compagnon ne peut pas s'installer
+sur ce PC tant que cette protection est active.
+
+On te déconseille de la désactiver juste pour ça.
+Elle protège contre de vraies menaces.
+
+
+ANTIVIRUS / QUARANTAINE
+========================
+
+Si Windows Sécurité ou ton antivirus a mis le
+fichier en quarantaine :
+
+1. Ouvre Windows Sécurité
+2. Va dans "Historique de protection"
+3. Retrouve le fichier et clique sur "Restaurer"
+
+Fais-le seulement si tu as téléchargé le zip
+depuis la page GitHub officielle citée plus haut.
+
+
+INSTALLATION
+============
+
+Prérequis :
+- Windows 10 ou 11
+- WebView2 (déjà présent sur Windows 11)
+
+Étapes :
+1. Lance CompagnonEnshrouded.exe
+2. Il s'installe tout seul, rien à faire
+3. Au premier lancement, il télécharge ses pages
+   (connexion internet requise)
+4. L'assistant te demande ton pseudo
+5. Il trouve tes personnages automatiquement
+
+
+MISES A JOUR
+============
+
+Les mises à jour sont automatiques.
+Tu n'as rien à retélécharger.
+L'appli se met à jour toute seule au lancement.
+
+
+DESINSTALLER
+============
+
+Clic droit sur l'icône du Compagnon près de
+l'horloge, puis choisis "Désinstaller".
+C'est tout.
+
+
+PROBLEME OU IDEE
+================
+
+Tu as un bug, une question, ou une idée ?
+Va sur la page GitHub du projet.
+Onglet "Issues" :
+https://github.com/LeVieuxSinge38/compagnon-enshrouded/issues
+
+
+NOTICE
+======
+
+Le Compagnon Enshrouded est un projet de fan.
+Il n'est pas officiel.
+Il n'est pas affilié à Keen Games.
+Merci de l'utiliser avec le sourire.

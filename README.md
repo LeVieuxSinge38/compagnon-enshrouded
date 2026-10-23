@@ -13,7 +13,7 @@ Puis :
 3. Au tout premier lancement, l'appli télécharge ses pages web (quelques secondes, c'est normal).
 4. C'est parti !
 
-> **Windows SmartScreen** peut t'afficher un avertissement parce que l'appli n'est pas signée. C'est normal, ce n'est pas un virus. Clique sur **« Informations complémentaires »** puis **« Exécuter quand même »**.
+> **Windows peut bloquer l'appli** : elle est gratuite et faite par un particulier, donc sans certificat payant (le code est ici, en public). Le plus simple : **avant de dézipper**, clic droit sur le zip > **Propriétés** > coche **« Débloquer »** > OK. Si l'écran bleu « Windows a protégé votre ordinateur » apparaît quand même : **« Informations complémentaires »** puis **« Exécuter quand même »**. Tous les cas (antivirus, Contrôle intelligent des applications) sont expliqués dans [LISEZ-MOI.txt](desktop/LISEZ-MOI.txt), aussi inclus dans le zip.
 
 ## Prérequis
 
