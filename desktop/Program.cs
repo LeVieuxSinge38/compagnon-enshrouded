@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.6.0")]
-[assembly: AssemblyFileVersion("2.2.6.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.7.0")]
+[assembly: AssemblyFileVersion("2.2.7.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1092,7 +1092,7 @@ namespace Compagnon
             saves.Updated += BroadcastSave;
             Web.Message += OnPageRequest;
 
-            updateTimer = new System.Windows.Forms.Timer { Interval = 5 * 60 * 1000 }; // toutes les 5 minutes (petit fichier)
+            updateTimer = new System.Windows.Forms.Timer { Interval = Config.Channel == "test" ? 60 * 1000 : 5 * 60 * 1000 }; // 5 min (canal test : 1 min)
             updateTimer.Tick += (s, e) => CheckUpdate(false);
             updateTimer.Start();
             var first = new System.Windows.Forms.Timer { Interval = 15000 };
