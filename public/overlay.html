@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay — Compagnon Enshrouded</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="overlay.css">
+<link rel="stylesheet" href="icones.css">
+</head>
+<body class="ov">
+<div id="upd" class="ov-upd" hidden></div>
+<nav class="ov-tabs" id="tabs">
+  <button data-tab="res" data-tip="Ressources : où trouver une ressource" aria-label="Ressources : où trouver une ressource"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></button>
+  <button data-tab="farm" data-tip="Liste de farm" aria-label="Liste de farm"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/></svg></button>
+  <button data-tab="flame" data-tip="Niveau de Flamme : prochain objectif" aria-label="Niveau de Flamme : prochain objectif"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21c-4 0-6.5-2.6-6.5-6 0-3.6 3-5.5 3.5-9 2.4 1.6 3.4 3.4 3.5 5.4 1-.8 1.6-2 1.8-3.4 2.3 1.9 4.2 4.4 4.2 7 0 3.4-2.5 6-6.5 6z"/></svg></button>
+  <button data-tab="build" data-tip="Build : prochaines compétences" aria-label="Build : prochaines compétences"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h10a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H8a2 2 0 0 1-2-2z"/><path d="M6 4a2 2 0 0 0-2 2v2h2M10 9h5M10 13h5"/></svg></button>
+  <button data-tab="memos" data-tip="Mémos" aria-label="Mémos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5M8.5 9h7M8.5 12.5h4"/></svg></button>
+</nav>
+<main id="ov"></main>
+<footer class="ov-foot"><span id="who"></span><span id="sync"></span></footer>
+<script src="data/skills.js"></script>
+<script src="data/materials.js"></script>
+<script src="data/recipes.js"></script>
+<script src="data/guides.js"></script>
+<script src="data/map.js"></script>
+<script src="data/places_fr.js"></script>
+<script src="data/tree.js"></script>
+<script src="skilltree.js"></script>
+<script src="vendor/fzstd.js"></script>
+<script src="data/gameids.js"></script>
+<script src="savegame.js"></script>
+<script src="profil.js"></script>
+<script src="overlay.js"></script>
+</body>
+</html>

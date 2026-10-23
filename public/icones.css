@@ -1,0 +1,57 @@
+/* Police des titres (Cinzel, licence OFL) et icônes de jeu (game-icons.net, CC BY 3.0), communes au Compagnon et à l'overlay */
+@font-face { font-family: 'Cinzel'; src: url('fonts/Cinzel.ttf') format('truetype'); font-weight: 400 900; font-display: swap; }
+/* ---------- Icônes (game-icons.net, CC BY 3.0) : prennent la couleur du texte ---------- */
+.gi { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.2em; flex-shrink: 0; background: currentColor;
+  -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.gi-anvil { --i: url(img/icones/anvil.svg); }
+.gi-battle-axe { --i: url(img/icones/battle-axe.svg); }
+.gi-boots { --i: url(img/icones/boots.svg); }
+.gi-bow-arrow { --i: url(img/icones/bow-arrow.svg); }
+.gi-breastplate { --i: url(img/icones/breastplate.svg); }
+.gi-campfire { --i: url(img/icones/campfire.svg); }
+.gi-check-mark { --i: url(img/icones/check-mark.svg); }
+.gi-checked-shield { --i: url(img/icones/checked-shield.svg); }
+.gi-compass { --i: url(img/icones/compass.svg); }
+.gi-crossed-swords { --i: url(img/icones/crossed-swords.svg); }
+.gi-crown { --i: url(img/icones/crown.svg); }
+.gi-cycle { --i: url(img/icones/cycle.svg); }
+.gi-death-skull { --i: url(img/icones/death-skull.svg); }
+.gi-fairy-wand { --i: url(img/icones/fairy-wand.svg); }
+.gi-fire-silhouette { --i: url(img/icones/fire-silhouette.svg); }
+.gi-forest { --i: url(img/icones/forest.svg); }
+.gi-gamepad { --i: url(img/icones/gamepad.svg); }
+.gi-gauntlet { --i: url(img/icones/gauntlet.svg); }
+.gi-hammer-drop { --i: url(img/icones/hammer-drop.svg); }
+.gi-hazard-sign { --i: url(img/icones/hazard-sign.svg); }
+.gi-healing { --i: url(img/icones/healing.svg); }
+.gi-house { --i: url(img/icones/house.svg); }
+.gi-jigsaw-piece { --i: url(img/icones/jigsaw-piece.svg); }
+.gi-light-bulb { --i: url(img/icones/light-bulb.svg); }
+.gi-locked-chest { --i: url(img/icones/locked-chest.svg); }
+.gi-magnifying-glass { --i: url(img/icones/magnifying-glass.svg); }
+.gi-mining { --i: url(img/icones/mining.svg); }
+.gi-newspaper { --i: url(img/icones/newspaper.svg); }
+.gi-open-folder { --i: url(img/icones/open-folder.svg); }
+.gi-padlock { --i: url(img/icones/padlock.svg); }
+.gi-padlock-open { --i: url(img/icones/padlock-open.svg); }
+.gi-paw-print { --i: url(img/icones/paw-print.svg); }
+.gi-pc { --i: url(img/icones/pc.svg); }
+.gi-person { --i: url(img/icones/person.svg); }
+.gi-pin { --i: url(img/icones/pin.svg); }
+.gi-plain-dagger { --i: url(img/icones/plain-dagger.svg); }
+.gi-position-marker { --i: url(img/icones/position-marker.svg); }
+.gi-ring { --i: url(img/icones/ring.svg); }
+.gi-rolling-dices { --i: url(img/icones/rolling-dices.svg); }
+.gi-scroll-quill { --i: url(img/icones/scroll-quill.svg); }
+.gi-scroll-unfurled { --i: url(img/icones/scroll-unfurled.svg); }
+.gi-skills { --i: url(img/icones/skills.svg); }
+.gi-sparkles { --i: url(img/icones/sparkles.svg); }
+.gi-spyglass { --i: url(img/icones/spyglass.svg); }
+.gi-talk { --i: url(img/icones/talk.svg); }
+.gi-treasure-map { --i: url(img/icones/treasure-map.svg); }
+.gi-trousers { --i: url(img/icones/trousers.svg); }
+.gi-upgrade { --i: url(img/icones/upgrade.svg); }
+.gi-visored-helm { --i: url(img/icones/visored-helm.svg); }
+.gi-wizard-staff { --i: url(img/icones/wizard-staff.svg); }
+.gi-world { --i: url(img/icones/world.svg); }
+.gi-cog { --i: url(img/icones/cog.svg); }

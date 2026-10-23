@@ -1,0 +1,47 @@
+[
+  {
+    "id": "2026-10-23-maj-douce",
+    "date": "2026-10-23",
+    "items": [
+      "Mises à jour sans fermer le Compagnon : une barre de progression avec pourcentage, puis la page se recharge toute seule.",
+      "Premier lancement : tes anciennes données sont reprises automatiquement.",
+      "Textes de l'assistant plus clairs (changement de personnage automatique, Flamme modifiable plus tard)."
+    ]
+  },
+  {
+    "id": "2026-10-23-refonte",
+    "date": "2026-10-23",
+    "items": [
+      "Nouvelle interface : vraies icônes de jeu au lieu des émojis, titres gravés comme dans le jeu, boutons arrondis et lumineux.",
+      "Une intro dans la brume, avec une courte musique, au démarrage du Compagnon.",
+      "Transitions animées entre les pages, et un menu dont la lueur suit la rubrique choisie."
+    ]
+  },
+  {
+    "id": "2026-10-20-provenance",
+    "date": "2026-10-20",
+    "items": [
+      "Équipement : pour chaque objet, chez quel artisan le fabriquer, dans quels coffres (niveau et région) et sur quels boss il tombe.",
+      "Bouton « Voir sur la carte » : la carte n'affiche que les coffres et les boss où l'objet peut tomber, ou le coffre exact quand il est connu.",
+      "Stats d'armure exactes du jeu, écrites en toutes lettres (armure physique, armure magique), avec le tableau des améliorations."
+    ]
+  },
+  {
+    "id": "2026-10-20-equipement",
+    "date": "2026-10-20",
+    "items": [
+      "Équipement : les stats d'armure sont maintenant exactement celles du jeu (armure physique, armure magique, bonus), au niveau de l'objet.",
+      "Dans le détail d'une pièce : le tableau de ses améliorations, niveau par niveau.",
+      "Carte : les noms des lieux écrits comme sur la carte du jeu."
+    ]
+  },
+  {
+    "id": "2026-10-19-carte",
+    "date": "2026-10-19",
+    "items": [
+      "Carte interactive : les vraies icônes de la carte du jeu (tours des Anciens, mausolées, racines, puits…).",
+      "Zoom plus net : le fond de carte est maintenant à sa pleine résolution.",
+      "Les mises à jour s'imposent même quand le Compagnon est déjà ouvert : plus de risque d'en rater une."
+    ]
+  }
+]

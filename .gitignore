@@ -1,0 +1,9 @@
+__pycache__/
+*.tmp
+.DS_Store
+Thumbs.db
+server-data/
+node_modules/
+release/
+public/downloads/
+release/

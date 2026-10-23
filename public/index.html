@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compagnon Enshrouded</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="icones.css">
+<link rel="stylesheet" href="refonte.css">
+</head>
+<body>
+<div class="mist" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+<div id="intro" aria-hidden="true"><div class="imist"><i></i><i></i><i></i><i></i></div><div class="ic"><img src="img/emblem.png" alt=""><div class="iline"></div><div class="it"><div class="a">Compagnon</div><div class="b">ENSHROUDED</div></div></div></div>
+<script src="intro.js"></script>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <img class="emblem" src="img/emblem.png" alt="">
+      <div><div class="brand-t">Compagnon</div><div class="brand-s">Enshrouded</div></div>
+    </div>
+    <div id="charSw" class="char-sw" hidden></div>
+    <nav id="nav"><div class="nav-hl" aria-hidden="true"></div>
+      <a data-view="home"><i class="gi gi-house"></i> <span>Accueil</span></a>
+      <a data-view="carte"><i class="gi gi-treasure-map"></i> <span>Carte</span></a>
+      <a data-view="char"><i class="gi gi-visored-helm"></i> <span>Mon personnage</span></a>
+      <a data-view="farm"><i class="gi gi-anvil"></i> <span>Farm &amp; craft</span> <b id="listCount" class="pill"></b></a>
+      <a data-view="prog"><i class="gi gi-campfire"></i> <span>Progression</span></a>
+      <a data-view="settings" data-local hidden><i class="gi gi-cog"></i> <span>Paramètres</span></a>
+      <div class="nav-sep" data-server hidden>Compte</div>
+      <a data-view="account" data-server hidden><i class="gi gi-person"></i> <span id="whoami">Mon compte</span></a>
+      <a data-view="admin" data-server="admin" hidden><i class="gi gi-crown"></i> <span>Administration</span></a>
+    </nav>
+    <div id="verBox" class="ver-box"></div>
+    <div class="side-foot">Données : wiki Enshrouded et wikily.gg (jeu 1.0). Icônes : <a href="https://game-icons.net" target="_blank" rel="noopener noreferrer">game-icons.net</a> (CC BY 3.0).</div>
+  </aside>
+  <main id="main"></main>
+</div>
+<script src="data/skills.js"></script>
+<script src="data/materials.js"></script>
+<script src="data/recipes.js"></script>
+<script src="data/guides.js"></script>
+<script src="data/gear.js"></script>
+<script src="data/equip.js"></script>
+<script src="data/item_icons.js"></script>
+<script src="data/drops.js"></script>
+<script src="data/map.js"></script>
+<script src="data/places_fr.js"></script>
+<script src="data/tree.js"></script>
+<script src="skilltree.js"></script>
+<script src="data/carte_res.js"></script>
+<script src="data/provenance.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="carte.js"></script>
+<script src="vendor/fzstd.js"></script>
+<script src="data/gameids.js"></script>
+<script src="savegame.js"></script>
+<script src="profil.js"></script>
+<script src="news.js"></script>
+<script src="local.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
