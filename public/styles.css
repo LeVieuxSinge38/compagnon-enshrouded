@@ -179,6 +179,12 @@ details > summary::-webkit-details-marker { display: none; }
 .tn-step text { fill: #fff; text-anchor: middle; font-weight: 700; pointer-events: none; }
 .tn.on:not(.later) .tn-step text { fill: #111; }
 .tn-step { pointer-events: none; }
+/* Arbre : deux couleurs seulement — vert = complet (ex. 3/3), jaune = à prendre ou à compléter (ex. 1/3) ; le reste reste neutre */
+.tn-c, .tn-base { stroke: #4a4458; }
+.tn.on .tn-c { fill: #e6c35c; stroke: #fff8de; opacity: 1; filter: drop-shadow(0 0 8px #e6c35c); }
+.tn.got .tn-c { fill: #4caf6e; stroke: #c9f2d6; opacity: 1; filter: drop-shadow(0 0 6px #4caf6e); }
+.tn-step circle { stroke: #e6c35c; }
+.te-on { stroke: #c9b26a; }
 .tl { fill: #8a7f9b; font-size: 40px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; }
 .t-ring { fill: none; stroke: #3a3247; stroke-width: 2; stroke-dasharray: 4 10; }
 .t-flame { fill: #2b2536; stroke: #e6c35c; stroke-width: 3; opacity: .7; }
