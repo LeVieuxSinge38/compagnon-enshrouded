@@ -637,7 +637,7 @@ function treeSvg() {
     const A = ST.NODE[a], B = ST.NODE[b];
     if (!A || !B) continue;
     let cls = 'te', style = '';
-    if (have.has(a) && have.has(b) && stepOf[a].total <= avail && stepOf[b].total <= avail) {
+    if (have.has(a) && have.has(b)) {
       cls += ' te-on';
       style = ` style="stroke:${ST.color(b)}"`;
     }
@@ -646,17 +646,17 @@ function treeSvg() {
   for (const id in ST.NODE) {
     const n = ST.NODE[id], t = ST.typeOf(id), r = R[n.tier] || 15, rank = have.get(+id) || 0, s = stepOf[id];
     const g = got.get(+id) || 0, done = g > 0 && (!s || g >= s.rank);
-    // Deux couleurs seulement : vert = complet en jeu (ex. 3/3), jaune = à prendre ou à compléter (ex. 1/3)
+    // Tout le build est visible : à débloquer = couleur de la branche qui clignote ; débloqué (ex. 3/3) = vert
     let cls = 'tn';
-    if (g && g >= t.m) cls += ' got';
-    else if (g || (rank && s.total <= avail)) cls += ' on';
+    if (g > 0 && g >= (rank || t.m)) cls += ' got';
+    else if (rank) cls += ' todo';
     if (nq && norm(t.n + ' ' + t.en).includes(nq)) cls += ' hit';
     if (state.treeSel === +id) cls += ' sel';
     nodes += `<g class="${cls}" data-node="${id}" transform="translate(${n.x} ${n.y})" style="--c:${ST.color(id)}">`
       + (n.base ? `<circle class="tn-base" r="${r + 6}"/>` : '')
       + `<circle class="tn-c" r="${r}"/>`
-      + (t.m > 1 && (g || (rank && s.total <= avail)) ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${g || rank}/${t.m}</text>` : '')
-      + ((s && s.total <= avail) || g ? `<g class="tn-step${done ? ' done' : ''}" transform="translate(${r * 0.8 + 4 * k} ${-r * 0.8 - 4 * k})"><circle r="${11 * k}"/><text y="${4.5 * k}" style="font-size:${12 * k}px">${done ? '✓' : s.n}</text></g>` : '')
+      + (cls.includes(' got') ? `<text class="tn-ok" y="${(r * 0.38).toFixed(1)}" style="font-size:${(r * 1.15).toFixed(1)}px">✓</text>` : '')
+      + (t.m > 1 && (g || rank) ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${g}/${t.m}</text>` : '')
       + '</g>';
   }
   // Noms d'archétypes à l'extérieur de l'anneau (au-delà du nœud le plus éloigné), comme dans le jeu
@@ -678,7 +678,7 @@ VIEWS.planner = () => {
   const isDone = s => (got.get(s.id) || 0) >= s.rank;
   const doneCount = steps.filter(isDone).length, next = steps.find(s => !isDone(s));
   return `<h1><i class="gi gi-skills"></i> Arbre de compétences</h1>
-  <p class="sub">L'arbre du jeu (version 1.0). <b>Clic</b> sur un nœud pour l'ajouter, <b>clic droit</b> pour le retirer, <b>molette</b> pour zoomer, <b>glisser</b> pour te déplacer. Charge un build pour voir le chemin et l'ordre des clics.</p>
+  <p class="sub">L'arbre du jeu (version 1.0). <b>Clic</b> sur un nœud pour l'ajouter, <b>clic droit</b> pour le retirer, <b>molette</b> pour zoomer, <b>glisser</b> pour te déplacer. Charge un build pour voir tout le chemin : ce qui clignote est à débloquer.</p>
   <div class="tree-wrap">
     <div class="tree-box card">
       <div class="tree-tools">
@@ -690,8 +690,8 @@ VIEWS.planner = () => {
       ${treeSvg()}
       <div id="tTip" class="t-tip" hidden></div>
       <div class="tree-legend small">
-        <span><i class="lg lg-got"></i> Complet (ex. 3/3)</span><span><i class="lg lg-on"></i> À prendre ou à compléter (ex. 1/3)</span>
-        <span><b class="lg-num">3</b> Ordre des clics</span><span><b>2/3</b> Rangs débloqués / rangs max</span>
+        <span><i class="lg lg-got"></i> Débloqué (ex. 3/3)</span><span><i class="lg lg-todo"></i> À débloquer : clignote, couleur de la branche</span>
+        <span><b>1/3</b> Rangs débloqués / rangs max</span>
       </div>
     </div>
     <div class="tree-side stack">
@@ -728,13 +728,6 @@ VIEWS.planner = () => {
         <h3>Build</h3>
         <select id="pBuild"><option value="">Charger un build…</option>${BUILDS.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select>
         <div class="row"><button class="btn sm" data-act="copyPlan" ${steps.length ? '' : 'disabled'}>Copier les étapes</button><button class="btn sm ghost" data-act="clearPlan" ${steps.length ? '' : 'disabled'}>Tout effacer</button></div>
-      </div>
-      <div class="card">
-        <h3>Ordre des clics ${steps.length ? `<span class="muted small">— ${nowSteps}/${steps.length} faisables maintenant</span>` : ''}</h3>
-        ${state.game && steps.length ? `<p class="small" style="margin:4px 0">✓ ${doneCount}/${steps.length} étapes déjà faites en jeu${next ? ` · <b>prochaine : ${esc(next.name)}</b>` : ' · build terminé 🎉'}</p>` : ''}
-        ${steps.length ? `<ol class="t-steps">${steps.map(s => `<li class="${isDone(s) ? 'done' : s.total <= avail ? '' : 'later'}${next === s ? ' next' : ''}${state.treeSel === s.id ? ' sel' : ''}" data-act="treeFocus" data-arg="${s.id}">
-            <b class="t-n" style="--c:${ST.color(s.id)}">${isDone(s) ? '✓' : s.n}</b><span class="t-name">${esc(s.name)}${s.max > 1 ? ` <span class="muted">×${s.rank}</span>` : ''}</span><span class="t-pts">+${s.pts}<small>${s.total}</small></span></li>`).join('')}</ol>`
-          : '<p class="small muted">Aucun nœud. Charge un build ci-dessus, ou clique sur les nœuds près du centre (les points de départ ont un double cercle).</p>'}
       </div>
     </div>
   </div>`;
