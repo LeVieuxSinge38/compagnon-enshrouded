@@ -177,7 +177,7 @@ details > summary::-webkit-details-marker { display: none; }
 .tl { fill: #8a7f9b; font-size: 40px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; }
 .t-ring { fill: none; stroke: #3a3247; stroke-width: 2; stroke-dasharray: 4 10; }
 .t-flame { fill: #2b2536; stroke: #e6c35c; stroke-width: 3; opacity: .7; }
-.t-flame-t { font-size: 40px; text-anchor: middle; pointer-events: none; }
+.t-flame-t { fill: var(--flame); filter: drop-shadow(0 0 6px var(--flame)); pointer-events: none; }
 .t-tip { position: absolute; z-index: 5; max-width: 330px; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,.5); pointer-events: none; }
 .t-tip-h { display: flex; flex-direction: column; border-left: 3px solid var(--c); padding-left: 8px; margin-bottom: 4px; }
 .t-tip-s { margin-top: 6px; color: var(--flame2); }

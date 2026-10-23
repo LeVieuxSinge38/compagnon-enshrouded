@@ -668,7 +668,7 @@ function treeSvg() {
   }
   return `<svg id="treeSvg" viewBox="${v.x} ${v.y} ${v.w} ${v.w}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Arbre de compétences">
     <defs><radialGradient id="tbg"><stop offset="0" stop-color="#2a2236"/><stop offset=".7" stop-color="#17131d"/><stop offset="1" stop-color="#120f17" stop-opacity="0"/></radialGradient></defs>
-    <circle r="910" fill="url(#tbg)"/><circle class="t-ring" r="905"/><circle class="t-flame" r="46"/><text class="t-flame-t" y="10"><i class="gi gi-fire-silhouette"></i></text>
+    <circle r="910" fill="url(#tbg)"/><circle class="t-ring" r="905"/><circle class="t-flame" r="46"/><path class="t-flame-t" d="M 0 -16 C -4 -10 -12 -2 -12 6 C -12 14 -6 20 0 20 C 6 20 12 14 12 6 C 12 -2 4 -10 0 -16 Z"/>
     ${labels}${edges}${nodes}</svg>`;
 }
 
