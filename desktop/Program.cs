@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.2.0")]
-[assembly: AssemblyFileVersion("2.2.2.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.3.0")]
+[assembly: AssemblyFileVersion("2.2.3.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -681,7 +681,7 @@ namespace Compagnon
         Point downAt;
         bool dragging;
         public event Action Clicked;
-        readonly Bitmap logo;             // emblème du jeu, intégré à l'exe (ressource « logo.png »)
+        readonly Bitmap logo;             // logo du Compagnon (lanterne), intégré à l'exe (ressource « logo.png »)
         readonly System.Windows.Forms.Timer anim = new System.Windows.Forms.Timer { Interval = 40 };
         readonly Stopwatch clock = Stopwatch.StartNew();
 
