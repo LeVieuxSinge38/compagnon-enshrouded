@@ -54,6 +54,7 @@ window.Carte = (() => {
     else m = L.marker(ll, { icon: L.divIcon({ className: 'cm-w', html: `<div class="cm ${GAME_ICO[c.id] ? 'cm-game' : c.g === 'res' ? 'cm-res' : 'cm-poi g-' + c.g}${done ? ' done' : ''}">${icoHtml(c, ni, GAME_ICO[c.id] ? 30 : 20)}</div>`, iconSize: GAME_ICO[c.id] ? [30, 30] : [26, 26], iconAnchor: GAME_ICO[c.id] ? [15, 15] : [13, 13] }), riseOnHover: true, keyboard: false });
     m.bindTooltip(() => `<b>${esc(c.names[ni])}</b>${c.subs && p[3] >= 0 ? ` · ${esc(c.subs[p[3]])}` : ''}${done ? ' ✓' : ''}`, { direction: 'top', offset: big ? [0, -5] : [0, -13], className: 'c-tip' });
     m.on('click', () => { m.unbindPopup(); m.bindPopup(popupHtml(c, i), { maxWidth: 320, className: 'c-pop' }).openPopup(); });
+    if (id) m.on('contextmenu', ev => { L.DomEvent.preventDefault(ev.originalEvent); ACTIONS.carteDone(id); }); // clic droit : cocher / décocher
     m._c = { c, i, big };
     if (id) byId.set(id, m);
     return m;
@@ -103,6 +104,7 @@ window.Carte = (() => {
       <div id="cRes" class="c-results"></div>
       <div class="row c-tools"><button class="btn sm" data-c="lieux" title="Tous les lieux, sans les ressources">Tous les lieux</button><button class="btn sm ghost" data-c="none">Tout masquer</button></div>
       <label class="c-row c-hide"><input type="checkbox" id="cHide" ${hideDone ? 'checked' : ''}><span class="c-nm">Masquer ce que j'ai fait</span></label>
+      <p class="small muted" style="margin:4px 2px 8px">Clic sur un point : détails. <b>Clic droit</b> : le cocher comme fait.</p>
       <label class="c-row"><input type="checkbox" id="cNames" ${showNames ? 'checked' : ''}><span class="c-nm">Noms des lieux (comme en jeu)</span></label>
       <div class="c-groups">${grp}</div>
       <p class="small muted c-src">Fond : wiki Enshrouded</p>`;
