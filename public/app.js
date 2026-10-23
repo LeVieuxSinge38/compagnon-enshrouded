@@ -629,7 +629,7 @@ state.treeQ = '';
 function treeSvg() {
   const plan = state.tree, have = new Map(plan.map(p => [p[0], p[1]])), avail = availPoints(), got = gameMap();
   const stepOf = {}; ST.steps(plan).forEach(s => { stepOf[s.id] = s; });
-  const v = state.treeView, k = v.w / (state._svgW || 800); // unités SVG par pixel : numéros et textes gardent la même taille à l'écran
+  const v = state.treeView, k = v.w / Math.max(400, state._svgW || 800); // unités SVG par pixel : numéros et textes gardent la même taille à l'écran
   const R = { small: 10, medium: 15, large: 21 };
   const nq = norm(state.treeQ);
   let edges = '', nodes = '', labels = '';
@@ -637,8 +637,8 @@ function treeSvg() {
     const A = ST.NODE[a], B = ST.NODE[b];
     if (!A || !B) continue;
     let cls = 'te', style = '';
-    if (have.has(a) && have.has(b)) {
-      cls += (stepOf[a].total > avail || stepOf[b].total > avail) ? ' te-later' : ' te-on';
+    if (have.has(a) && have.has(b) && stepOf[a].total <= avail && stepOf[b].total <= avail) {
+      cls += ' te-on';
       style = ` style="stroke:${ST.color(b)}"`;
     }
     edges += `<line class="${cls}"${style} x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>`;
@@ -647,7 +647,7 @@ function treeSvg() {
     const n = ST.NODE[id], t = ST.typeOf(id), r = R[n.tier] || 15, rank = have.get(+id) || 0, s = stepOf[id];
     const g = got.get(+id) || 0, done = g > 0 && (!s || g >= s.rank);
     let cls = 'tn';
-    if (rank) cls += s.total <= avail ? ' on' : ' on later';
+    if (rank && s.total <= avail) cls += ' on'; // les étapes prévues plus tard ne sont pas affichées dans l'arbre
     if (g) cls += ' got';
     else if (ST.canTake(plan, +id)) cls += ' can';
     if (nq && norm(t.n + ' ' + t.en).includes(nq)) cls += ' hit';
@@ -655,8 +655,8 @@ function treeSvg() {
     nodes += `<g class="${cls}" data-node="${id}" transform="translate(${n.x} ${n.y})" style="--c:${ST.color(id)}">`
       + (n.base ? `<circle class="tn-base" r="${r + 6}"/>` : '')
       + `<circle class="tn-c" r="${r}"/>`
-      + (rank && t.m > 1 ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${rank}/${t.m}</text>` : '')
-      + (s || g ? `<g class="tn-step${done ? ' done' : ''}" transform="translate(${r * 0.8 + 4 * k} ${-r * 0.8 - 4 * k})"><circle r="${11 * k}"/><text y="${4.5 * k}" style="font-size:${12 * k}px">${done ? '✓' : s.n}</text></g>` : '')
+      + (rank && t.m > 1 && s.total <= avail ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${rank}/${t.m}</text>` : '')
+      + ((s && s.total <= avail) || g ? `<g class="tn-step${done ? ' done' : ''}" transform="translate(${r * 0.8 + 4 * k} ${-r * 0.8 - 4 * k})"><circle r="${11 * k}"/><text y="${4.5 * k}" style="font-size:${12 * k}px">${done ? '✓' : s.n}</text></g>` : '')
       + '</g>';
   }
   // Noms d'archétypes à l'extérieur de l'anneau (au-delà du nœud le plus éloigné), comme dans le jeu
@@ -690,7 +690,7 @@ VIEWS.planner = () => {
       ${treeSvg()}
       <div id="tTip" class="t-tip" hidden></div>
       <div class="tree-legend small">
-        <span><i class="lg lg-got"></i> Déjà appris en jeu</span><span><i class="lg lg-on"></i> À prendre maintenant</span><span><i class="lg lg-later"></i> Prévu plus tard (il te manque des points)</span>
+        <span><i class="lg lg-got"></i> Déjà appris en jeu</span><span><i class="lg lg-on"></i> À prendre maintenant</span>
         <span><i class="lg lg-can"></i> Disponible : tu peux le prendre</span><span><b class="lg-num">3</b> Ordre des clics</span><span><b>2/3</b> Rangs pris / rangs max</span>
       </div>
     </div>
@@ -807,7 +807,7 @@ AFTER.planner = () => {
   const svg = $('#treeSvg'), tip = $('#tTip'), box = $('.tree-box');
   // Largeur réelle de l'arbre à l'écran : sert à garder les numéros lisibles
   const sw = svg.getBoundingClientRect().width;
-  if (sw > 0 && Math.abs(sw - (state._svgW || 0)) > 30) { state._svgW = sw; return rerenderKeepScroll(); }
+  if (sw > 200 && Math.abs(sw - (state._svgW || 0)) > 30) { state._svgW = sw; return rerenderKeepScroll(); }
   const toSvg = (cx, cy) => { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); };
   svg.addEventListener('wheel', e => {
     e.preventDefault();
