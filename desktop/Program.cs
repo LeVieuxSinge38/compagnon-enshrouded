@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.5.0")]
-[assembly: AssemblyFileVersion("2.2.5.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.6.0")]
+[assembly: AssemblyFileVersion("2.2.6.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -35,7 +35,8 @@ namespace Compagnon
     {
         public const string AppName = "Compagnon Enshrouded";
         public const string ExeName = "CompagnonEnshrouded.exe";
-        public const string UpdateBase = "https://github.com/LeVieuxSinge38/compagnon-enshrouded/releases/latest/download/";
+        // Canal normal = dernière version publiée ; canal « test » (Channel=test dans config.txt) = préversion « test » du développeur
+        public static string UpdateBase { get { return Config.Channel == "test" ? "https://github.com/LeVieuxSinge38/compagnon-enshrouded/releases/download/test/" : "https://github.com/LeVieuxSinge38/compagnon-enshrouded/releases/latest/download/"; } }
         public static readonly string[] AppFiles = { ExeName, "Microsoft.Web.WebView2.Core.dll", "Microsoft.Web.WebView2.WinForms.dll", "WebView2Loader.dll" };
         public static readonly string LocalAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         public static readonly string InstallDir = Path.Combine(LocalAppData, "Programs", AppName);
@@ -112,6 +113,7 @@ namespace Compagnon
         public static double Opacity = 0.92;
         public static Rectangle OverlayBounds = Rectangle.Empty;
         public static bool Collapsed = false;              // overlay réduit en bulle
+        public static string Channel = "";                 // "test" = reçoit les versions de test du développeur
         public static Point BubblePos = new Point(-1, -1);
 
         public static void Load()
@@ -134,6 +136,7 @@ namespace Compagnon
                 if (p.Length == 4) OverlayBounds = new Rectangle(p[0], p[1], p[2], p[3]);
             }
             if (d.TryGetValue("Collapsed", out v)) Collapsed = v == "1";
+            if (d.TryGetValue("Channel", out v)) Channel = v.Trim().ToLowerInvariant();
             if (d.TryGetValue("Bubble", out v))
             {
                 var p = v.Split(',').Select(s => { int n; return int.TryParse(s, out n) ? n : -1; }).ToArray();
@@ -150,6 +153,7 @@ namespace Compagnon
                 "Opacity=" + Opacity.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 "Overlay=" + b.X + "," + b.Y + "," + b.Width + "," + b.Height,
                 "Collapsed=" + (Collapsed ? "1" : "0"),
+                "Channel=" + Channel,
                 "Bubble=" + BubblePos.X + "," + BubblePos.Y
             });
         }
