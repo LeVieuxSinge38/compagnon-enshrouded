@@ -351,8 +351,8 @@ body { background: var(--bg); }
   background: linear-gradient(180deg, rgba(23,39,56,.9), rgba(12,21,32,.9)); border: 1px solid var(--line); font: inherit; min-width: 0; overflow: hidden; }
 .slot:hover { border-color: var(--flame); }
 .slot.on { border-color: var(--flame); box-shadow: 0 0 0 1px var(--flame), 0 0 16px rgba(143,208,245,.25); }
-.slot.craft { border-left: 3px solid #8fd0f5; }
-.slot.loot { border-left: 3px solid #b48be6; }
+.slot.craft { border-left: 6px solid #8fd0f5; }
+.slot.loot { border-left: 6px solid #b48be6; }
 .slot.empty { opacity: .5; }
 .slot-ico { width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; font-size: 22px; border-radius: 8px; background: rgba(143,208,245,.08); border: 1px solid rgba(143,208,245,.2); }
 .slot-t { display: flex; flex-direction: column; min-width: 0; }
