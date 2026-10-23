@@ -103,7 +103,7 @@ const VIEWS = {
         <p style="margin:8px 0"><i class="gi gi-position-marker"></i> ${where}</p>
         <div class="row" style="gap:6px;flex-wrap:wrap">
           ${places ? `<button class="btn pri" data-act="resMap" data-n="${esc(n)}"><i class="gi gi-treasure-map"></i> Afficher sur la carte <span class="sub2" style="color:inherit">(${places} lieu${places > 1 ? 'x' : ''})</span></button>` : '<span class="sub2">Pas de lieu précis sur la carte.</span>'}
-          <button class="btn" data-act="resList" data-n="${esc(n)}">${inList ? `✓ Dans ma liste (${inList.have}/${inList.need})` : '➕ Liste de farm'}</button>
+          <button class="btn" data-act="resList" data-n="${esc(n)}">${inList ? "✓ Dans ma liste de farm" : '➕ Liste de farm'}</button>
         </div></div>`;
     }
     return `<div class="ov-add"><input type="search" id="resIn" placeholder="Fer, cuivre, résine… (nom de la ressource)" value="${esc(resQ)}" autocomplete="off"></div>
@@ -125,13 +125,10 @@ const VIEWS = {
     let items = Object.entries(data.list).sort((a, b) => (a[1].have >= a[1].need) - (b[1].have >= b[1].need) || matName(a[0]).localeCompare(matName(b[0])));
     if (hideDone) items = items.filter(([, v]) => v.have < v.need);
     if (!Object.keys(data.list).length) return '<div class="empty">Ta liste de farm est vide.<br>Cherche une ressource dans l\'onglet Ressources, ou ajoute-en depuis le Compagnon (Craft, Flamme).</div>';
-    return `<label class="row sub2 ov-opt"><input type="checkbox" class="check" data-act="hideDone" ${hideDone ? 'checked' : ''}> masquer les ressources finies</label>
-      ${items.map(([n, v]) => { const ok = v.have >= v.need, pct = Math.min(100, v.have / Math.max(1, v.need) * 100);
+    return `<label class="row sub2 ov-opt"><input type="checkbox" class="check" data-act="hideDone" ${hideDone ? 'checked' : ''}> masquer ce qui est déjà farmé</label>
+      ${items.map(([n, v]) => { const ok = v.have >= v.need;
         return `<div class="fi ${ok ? 'done' : ''}">
-        <div class="fi-top">${resIcon(n, 26) || '<span class="fi-noico"></span>'}<span class="fi-n">${esc(matName(n))}</span>
-          <button class="mini" data-act="dec" data-n="${esc(n)}" title="Une de moins">−</button><span class="fi-q">${v.have}<small>/${v.need}</small></span><button class="mini" data-act="inc" data-n="${esc(n)}" title="Une de plus">+</button>
-          <button class="mini" data-act="fill" data-n="${esc(n)}" title="${ok ? 'Remettre à zéro' : 'Terminé'}">✓</button></div>
-        <div class="fi-bar"><i style="width:${pct.toFixed(0)}%"></i></div></div>`; }).join('')}`;
+        <div class="fi-top"><button class="fi-chk${ok ? ' on' : ''}" data-act="fill" data-n="${esc(n)}" title="${ok ? 'Pas encore farmé' : 'Farmé !'}">✓</button>${resIcon(n, 26) || '<span class="fi-noico"></span>'}<span class="fi-n">${esc(matName(n))}</span></div></div>`; }).join('')}`;
   },
   flame() {
     const f = FLAME.find(x => x.lv === data.flame + 1);

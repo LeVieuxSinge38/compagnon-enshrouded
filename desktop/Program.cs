@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.3.0")]
-[assembly: AssemblyFileVersion("2.2.3.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.4.0")]
+[assembly: AssemblyFileVersion("2.2.4.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1208,7 +1208,7 @@ namespace Compagnon
             if (running)
             {
                 Wake();
-                if (Config.ShowWithGame) ShowPanel();
+                if (Config.ShowWithGame) { Config.Collapsed = true; Config.Save(); ShowPanel(); } // au lancement du jeu : toujours la bulle
             }
             else { HidePanel(); Sleep(); }
         }

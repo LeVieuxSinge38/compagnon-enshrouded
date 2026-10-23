@@ -37,7 +37,11 @@ body.ov { color-scheme: dark; --flame: #8fd0f5; --flame2: #c2e8fc; --ovline: rgb
 .fi-q small { font-size: 12px; font-weight: 400; color: #7c95a8; }
 .fi-bar { height: 5px; margin: 6px 0 0 32px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; }
 .fi-bar i { display: block; height: 100%; background: var(--flame); border-radius: 3px; transition: width .2s; }
-.fi.done { opacity: .5; }
+.fi.done { opacity: .55; }
+.fi.done .fi-n { text-decoration: line-through; text-decoration-thickness: 2px; }
+.fi-chk { width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; border: 2px solid #7c95a8; background: transparent; color: transparent; font-weight: 700; cursor: pointer; display: grid; place-items: center; padding: 0; transition: background .15s, border-color .15s, color .15s; }
+.fi-chk:hover { border-color: #7ccf98; color: #7ccf98; }
+.fi-chk.on { background: #4caf6e; border-color: #4caf6e; color: #fff; }
 .fi.done .fi-bar i { background: #7ccf98; }
 .fi.done .fi-n { text-decoration: line-through; }
 
