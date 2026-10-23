@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.4.0")]
-[assembly: AssemblyFileVersion("2.2.4.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.5.0")]
+[assembly: AssemblyFileVersion("2.2.5.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -55,6 +55,16 @@ namespace Compagnon
         [STAThread]
         static void Main(string[] args)
         {
+            // Désinstallation lancée depuis « Applications installées » de Windows
+            if (args.Contains("--uninstall"))
+            {
+                if (MessageBox.Show("Désinstaller le Compagnon Enshrouded de ce PC ?\n\nToutes ses données (builds, listes, réglages) seront supprimées de ce PC.", Program.AppName,
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                foreach (var p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(Program.ExeName)))
+                    if (p.Id != Process.GetCurrentProcess().Id) try { p.Kill(); p.WaitForExit(3000); } catch { }
+                Installer.Uninstall();
+                return;
+            }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Directory.CreateDirectory(DataDir);
@@ -74,7 +84,7 @@ namespace Compagnon
             Config.Load();
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             Installer.CleanupOldFiles();
-            if (Installer.IsInstalled) Installer.MigrateAutoStart();
+            if (Installer.IsInstalled) { Installer.MigrateAutoStart(); Installer.RegisterApp(); Installer.RefreshIcons(); }
 
             if (!Installer.IsInstalled && !args.Contains("--portable"))
             {
@@ -278,8 +288,39 @@ namespace Compagnon
             }
         }
 
+        // Inscription dans « Paramètres > Applications installées » (pour l'utilisateur courant, sans droits admin)
+        const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\CompagnonEnshrouded";
+        public static void RegisterApp()
+        {
+            try
+            {
+                string exe = Path.Combine(Program.InstallDir, Program.ExeName);
+                long size = 0;
+                try { foreach (var f in new DirectoryInfo(Program.InstallDir).GetFiles("*", SearchOption.AllDirectories)) size += f.Length; } catch { }
+                using (var k = Registry.CurrentUser.CreateSubKey(UninstallKey))
+                {
+                    k.SetValue("DisplayName", Program.AppName);
+                    k.SetValue("DisplayIcon", exe + ",0");
+                    k.SetValue("DisplayVersion", Program.CurrentVersion.ToString(3));
+                    k.SetValue("Publisher", "LeVieuxSinge38");
+                    k.SetValue("InstallLocation", Program.InstallDir);
+                    k.SetValue("UninstallString", "\"" + exe + "\" --uninstall");
+                    k.SetValue("URLInfoAbout", "https://github.com/LeVieuxSinge38/compagnon-enshrouded");
+                    k.SetValue("NoModify", 1, RegistryValueKind.DWord);
+                    k.SetValue("NoRepair", 1, RegistryValueKind.DWord);
+                    k.SetValue("EstimatedSize", (int)(size / 1024), RegistryValueKind.DWord);
+                }
+            }
+            catch { }
+        }
+
+        // Demande à Windows de relire les icônes (sinon l'ancienne icône reste en cache après une mise à jour)
+        [DllImport("shell32.dll")] static extern void SHChangeNotify(int eventId, int flags, IntPtr item1, IntPtr item2);
+        public static void RefreshIcons() { try { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); } catch { } }
+
         public static void Uninstall()
         {
+            try { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { }
             SetAutoStart(false, null);
             foreach (var lnk in new[] {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), Program.AppName + ".lnk"),
@@ -1346,7 +1387,7 @@ namespace Compagnon
 
         void Uninstall()
         {
-            if (MessageBox.Show("Désinstaller le Compagnon de ce PC ?\n(Tes données restent sur le serveur de la maison.)", Program.AppName,
+            if (MessageBox.Show("Désinstaller le Compagnon de ce PC ?\nToutes ses données (builds, listes, réglages) seront supprimées de ce PC.", Program.AppName,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             Installer.Uninstall();
             Quit();
