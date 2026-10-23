@@ -690,8 +690,8 @@ VIEWS.planner = () => {
       ${treeSvg()}
       <div id="tTip" class="t-tip" hidden></div>
       <div class="tree-legend small">
-        <span><i class="lg lg-on"></i> à prendre maintenant</span><span><i class="lg lg-later"></i> plus tard (pas encore assez de points)</span>
-        <span><i class="lg lg-can"></i> prenable</span><span><b class="lg-num">3</b> ordre des clics</span><span><b>2/3</b> rangs</span>
+        <span><i class="lg lg-got"></i> Déjà appris en jeu</span><span><i class="lg lg-on"></i> À prendre maintenant</span><span><i class="lg lg-later"></i> Prévu plus tard (il te manque des points)</span>
+        <span><i class="lg lg-can"></i> Disponible : tu peux le prendre</span><span><b class="lg-num">3</b> Ordre des clics</span><span><b>2/3</b> Rangs pris / rangs max</span>
       </div>
     </div>
     <div class="tree-side stack">
@@ -1477,6 +1477,7 @@ const appHost = window.chrome && window.chrome.webview;
 function renderVer() {
   const box = $('#verBox'); if (!box) return;
   let html = '';
+  html += `<a class="btn sm bug-btn" target="_blank" rel="noopener" href="https://github.com/LeVieuxSinge38/compagnon-enshrouded/issues/new?title=${encodeURIComponent('[Bug / idée] ')}&body=${encodeURIComponent("Décris ici le bug ou ton idée (tu peux coller des captures d'écran).\n\n---\nVersion : " + (srv.app ? srv.app.version : '?'))}"><i class="gi gi-scroll-quill"></i> Signaler un bug / une idée</a>`;
   if (srv.app) {
     html += `<div class="ver-line"><i class="gi gi-pc"></i> Appli Windows <b>v${esc(srv.app.version)}</b>${srv.app.update ? '' : ' <span class="muted">· à jour</span>'}</div>`;
     if (srv.app.update) html += `<button class="btn pri sm blink" data-act="appUpdate" title="${esc(srv.app.notes || '')}"><i class="gi gi-upgrade"></i> Installer la mise à jour ${esc(srv.app.update)}</button>`;

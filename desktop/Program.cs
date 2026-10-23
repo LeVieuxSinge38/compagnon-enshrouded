@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.1.0")]
-[assembly: AssemblyFileVersion("2.2.1.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.2.0")]
+[assembly: AssemblyFileVersion("2.2.2.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -384,12 +384,13 @@ namespace Compagnon
         public static event Action<WebView2, string> Message; // messages de toutes les pages (relais réseau, sauvegardes…)
         public static readonly Color Background = Color.FromArgb(18, 15, 23);
 
-        public static void Remap(WebView2 view)
+        public static async void Remap(WebView2 view)
         {
             if (view.CoreWebView2 != null)
             {
                 view.CoreWebView2.ClearVirtualHostNameToFolderMapping(Program.Host);
                 view.CoreWebView2.SetVirtualHostNameToFolderMapping(Program.Host, Program.WebDir, CoreWebView2HostResourceAccessKind.Allow);
+                try { await view.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache); } catch { }
                 view.CoreWebView2.Reload();
             }
         }
@@ -401,6 +402,7 @@ namespace Compagnon
                 if (env == null) env = CoreWebView2Environment.CreateAsync(null, Path.Combine(Program.DataDir, "WebView2"),
                     new CoreWebView2EnvironmentOptions("--autoplay-policy=no-user-gesture-required")); // musique de l'intro
                 await view.EnsureCoreWebView2Async(await env);
+                try { await view.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache); } catch { } // pages locales : jamais l'ancienne version en cache
                 var core = view.CoreWebView2;
                 core.SetVirtualHostNameToFolderMapping(Program.Host, Program.WebDir, CoreWebView2HostResourceAccessKind.Allow);
                 core.Settings.IsStatusBarEnabled = false;

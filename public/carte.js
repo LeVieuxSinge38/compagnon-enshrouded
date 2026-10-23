@@ -105,7 +105,7 @@ window.Carte = (() => {
       <label class="c-row c-hide"><input type="checkbox" id="cHide" ${hideDone ? 'checked' : ''}><span class="c-nm">Masquer ce que j'ai fait</span></label>
       <label class="c-row"><input type="checkbox" id="cNames" ${showNames ? 'checked' : ''}><span class="c-nm">Noms des lieux (comme en jeu)</span></label>
       <div class="c-groups">${grp}</div>
-      <p class="small muted c-src">Points : wikily.gg · Fond : wiki Enshrouded</p>`;
+      <p class="small muted c-src">Fond : wiki Enshrouded</p>`;
   }
   function syncSide() {
     const side = opts.side;

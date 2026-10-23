@@ -187,7 +187,7 @@ window.Local = (() => {
         <div class="row"><button class="btn sm" data-act="sExport"><i class="gi gi-scroll-unfurled"></i> Exporter</button><label class="btn sm ghost">Importer<input type="file" id="sImport" accept=".json,application/json" hidden></label></div>
       </div>
     </div>
-    <p class="small muted" style="margin-top:18px">Icônes : game-icons.net (CC BY 3.0) · Police des titres : Cinzel (OFL) · Données : wiki Enshrouded et wikily.gg.</p>`;
+    <p class="small muted" style="margin-top:18px">Icônes : game-icons.net (CC BY 3.0) · Police des titres : Cinzel (OFL) · Données : wiki Enshrouded.</p>`;
   }
 
   // ---------- Démarrage ----------
