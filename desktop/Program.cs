@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.13.0")]
-[assembly: AssemblyFileVersion("2.2.13.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.14.0")]
+[assembly: AssemblyFileVersion("2.2.14.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1286,8 +1286,8 @@ namespace Compagnon
         static bool isOwner;
         static void CheckOwner()
         {
-            try { string o; int code = Gh("api repos/" + Repo + " --jq .permissions.admin", out o); isOwner = code == 0 && o.Trim().StartsWith("true"); File.WriteAllText(Path.Combine(Program.DataDir, "dev.log"), DateTime.Now + " gh=" + GhPath() + " code=" + code + " sortie=" + o + " | env: " + string.Join(", ", Environment.GetEnvironmentVariables().Keys.Cast<object>().Select(x => x.ToString()).OrderBy(x => x)) + " | APPDATA=" + Environment.GetEnvironmentVariable("APPDATA") + " USERNAME=" + Environment.GetEnvironmentVariable("USERNAME") + " parent? | " + (Gh("auth status", out o) + " " + o)); }
-            catch (Exception ex) { isOwner = false; try { File.WriteAllText(Path.Combine(Program.DataDir, "dev.log"), DateTime.Now + " erreur : " + ex.Message); } catch { } }
+            try { string o; isOwner = Gh("api repos/" + Repo + " --jq .permissions.admin", out o) == 0 && o.Trim().StartsWith("true"); }
+            catch { isOwner = false; }
         }
         // Chemin de gh : emplacements habituels, sinon « gh » (PATH)
         static string GhPath()
