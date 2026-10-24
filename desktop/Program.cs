@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.8.0")]
-[assembly: AssemblyFileVersion("2.2.8.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.9.0")]
+[assembly: AssemblyFileVersion("2.2.9.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1095,6 +1095,7 @@ namespace Compagnon
             updateTimer = new System.Windows.Forms.Timer { Interval = Config.Channel == "test" ? 60 * 1000 : 5 * 60 * 1000 }; // 5 min (canal test : 1 min)
             updateTimer.Tick += (s, e) => CheckUpdate(false);
             updateTimer.Start();
+            if (Config.Channel == "test") Task.Run(() => { CheckOwner(); ui.BeginInvoke((Action)BroadcastStatus); });
             var first = new System.Windows.Forms.Timer { Interval = 15000 };
             first.Tick += (s, e) => { first.Stop(); first.Dispose(); CheckUpdate(false); };
             first.Start();
@@ -1267,7 +1268,8 @@ namespace Compagnon
                 { "notes", pendingUpdate != null ? pendingUpdate.notes : null },
                 { "highlights", pendingUpdate != null ? pendingUpdate.highlights : null },
                 { "pages", pendingUpdate != null && Installer.PagesOnly(pendingUpdate) },
-                { "channel", Config.Channel } });
+                { "channel", Config.Channel },
+                { "dev", Config.Channel == "test" && isOwner } });
             if (main != null && !main.IsDisposed) main.Post(json);
             if (overlay != null && !overlay.IsDisposed) { overlay.Post(json); overlay.SetUpdate(pendingUpdate != null); }
             if (bubble != null && !bubble.IsDisposed) bubble.SetUpdate(pendingUpdate != null);
@@ -1277,6 +1279,65 @@ namespace Compagnon
         // Demandes des pages : relais réseau (actualités Steam, traduction), récupération des données du serveur,
         // choix du dossier des sauvegardes. La réponse repart vers la page qui a demandé.
         static readonly string[] FetchHosts = { "api.steampowered.com", "translate.googleapis.com" };
+        // Publication pour tout le monde (canal test seulement) : reprend la version de test et la publie avec le compte GitHub
+        // déjà connecté sur ce PC (outil gh). L'appli ne contient aucun secret : sans ce compte, la publication échoue.
+        const string Repo = "LeVieuxSinge38/compagnon-enshrouded";
+        // Vrai seulement si l'outil gh de ce PC est connecté à un compte qui administre le dépôt (vérifié par GitHub)
+        static bool isOwner;
+        static void CheckOwner()
+        {
+            try { string o; isOwner = Gh("api repos/" + Repo + " --jq .permissions.admin", out o) == 0 && o.Trim().StartsWith("true"); }
+            catch { isOwner = false; }
+        }
+        static int Gh(string args, out string output)
+        {
+            var psi = new ProcessStartInfo("gh", args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
+            using (var p = Process.Start(psi))
+            {
+                string o = p.StandardOutput.ReadToEnd(), e = p.StandardError.ReadToEnd();
+                p.WaitForExit();
+                output = (o + "\n" + e).Trim();
+                return p.ExitCode;
+            }
+        }
+        void Publish(string json, Action<Dictionary<string, object>> reply)
+        {
+            Action<bool, string> done = (ok, msg) => reply(new Dictionary<string, object> { { "type", "publish" }, { "ok", ok }, { "msg", msg } });
+            if (Config.Channel != "test" || !isOwner) { done(false, "Réservé au propriétaire du Compagnon (compte GitHub connecté sur ce PC)."); return; }
+            string[] highlights;
+            try { highlights = ((System.Collections.ArrayList)new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json)["highlights"]).Cast<object>().Select(x => Convert.ToString(x).Trim()).Where(x => x.Length > 0).ToArray(); }
+            catch { done(false, "Patch note illisible."); return; }
+            if (highlights.Length == 0) { done(false, "Patch note vide."); return; }
+            if (MessageBox.Show("Publier pour TOUT LE MONDE la version de test actuelle ?\n\nNouveautés :\n• " + string.Join("\n• ", highlights), Program.AppName,
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) { done(false, "Publication annulée."); return; }
+            Task.Run(() =>
+            {
+                string dir = Path.Combine(Path.GetTempPath(), "compagnon-publier-" + DateTime.Now.Ticks), o;
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    if (Gh("release download test -R " + Repo + " -D \"" + dir + "\"", out o) != 0) throw new Exception("téléchargement de la version de test impossible (gh installé et connecté ?) " + o);
+                    string jf = Path.Combine(dir, "desktop.json");
+                    var js = new JavaScriptSerializer();
+                    var d = js.Deserialize<Dictionary<string, object>>(File.ReadAllText(jf).TrimStart('﻿'));
+                    d["notes"] = "Nouveautés";
+                    d["highlights"] = highlights;
+                    File.WriteAllText(jf, js.Serialize(d), new System.Text.UTF8Encoding(false));
+                    string version = Convert.ToString(d["version"]), build = d.ContainsKey("webBuild") ? Convert.ToString(d["webBuild"]) : "";
+                    string tag = "v" + version;
+                    if (Gh("release view " + tag + " -R " + Repo, out o) == 0) tag += "-" + (build.Length > 0 ? build : DateTime.Now.ToString("yyyyMMddHHmm"));
+                    string notes = Path.Combine(Path.GetTempPath(), "compagnon-notes-" + DateTime.Now.Ticks + ".md");
+                    File.WriteAllText(notes, "**Nouveautés**\n\n- " + string.Join("\n- ", highlights) + "\n\n**Installation** : télécharge CompagnonEnshrouded.zip, dézippe-le où tu veux, lance CompagnonEnshrouded.exe.\n", new System.Text.UTF8Encoding(false));
+                    string files = string.Join(" ", Directory.GetFiles(dir).Select(f => "\"" + f + "\""));
+                    if (Gh("release create " + tag + " " + files + " -R " + Repo + " --title \"Compagnon Enshrouded " + version + "\" --notes-file \"" + notes + "\" --latest", out o) != 0) throw new Exception(o);
+                    try { File.Delete(notes); } catch { }
+                    done(true, "Version " + version + " publiée pour tout le monde (" + tag + ").");
+                }
+                catch (Exception ex) { done(false, "Échec : " + ex.Message); }
+                finally { try { Directory.Delete(dir, true); } catch { } }
+            });
+        }
+
         void OnPageRequest(WebView2 view, string m)
         {
             var js = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
@@ -1314,6 +1375,7 @@ namespace Compagnon
                 RestartSaves();
             }
             else if (m == "autoSaveDir") { Config.SaveDir = ""; Config.Save(); RestartSaves(); }
+            else if (m.StartsWith("publish:")) Publish(m.Substring(8), reply);
         }
 
         void RestartSaves()
