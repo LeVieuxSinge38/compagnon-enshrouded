@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.9.0")]
-[assembly: AssemblyFileVersion("2.2.9.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.10.0")]
+[assembly: AssemblyFileVersion("2.2.10.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1286,12 +1286,19 @@ namespace Compagnon
         static bool isOwner;
         static void CheckOwner()
         {
-            try { string o; isOwner = Gh("api repos/" + Repo + " --jq .permissions.admin", out o) == 0 && o.Trim().StartsWith("true"); }
-            catch { isOwner = false; }
+            try { string o; int code = Gh("api repos/" + Repo + " --jq .permissions.admin", out o); isOwner = code == 0 && o.Trim().StartsWith("true"); File.WriteAllText(Path.Combine(Program.DataDir, "dev.log"), DateTime.Now + " gh=" + GhPath() + " code=" + code + " sortie=" + o); }
+            catch (Exception ex) { isOwner = false; try { File.WriteAllText(Path.Combine(Program.DataDir, "dev.log"), DateTime.Now + " erreur : " + ex.Message); } catch { } }
+        }
+        // Chemin de gh : emplacements habituels, sinon « gh » (PATH)
+        static string GhPath()
+        {
+            foreach (var p in new[] { Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\GitHub CLI\gh.exe"), Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe"), @"C:\Program Files\GitHub CLI\gh.exe" })
+                if (File.Exists(p)) return p;
+            return "gh";
         }
         static int Gh(string args, out string output)
         {
-            var psi = new ProcessStartInfo("gh", args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
+            var psi = new ProcessStartInfo(GhPath(), args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
             using (var p = Process.Start(psi))
             {
                 string o = p.StandardOutput.ReadToEnd(), e = p.StandardError.ReadToEnd();
