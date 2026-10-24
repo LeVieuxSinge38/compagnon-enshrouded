@@ -4,7 +4,6 @@ const REPO = 'LeVieuxSinge38/compagnon-enshrouded';
 const API_RELEASES = 'https://api.github.com/repos/' + REPO + '/releases?per_page=30';
 const apiCompare = (tag) => 'https://api.github.com/repos/' + REPO + '/compare/' + tag + '...main';
 
-const appHost = window.chrome && window.chrome.webview;
 
 const _dev = { data: null, ts: 0, loading: false };
 
