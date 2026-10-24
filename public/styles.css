@@ -475,7 +475,8 @@ body[data-view="carte"] main { max-width: none; padding: 14px 16px 14px; }
 .cm.g-ennemis { border-color: var(--bad); box-shadow: 0 0 8px rgba(224,101,106,.5); }
 .cm.g-butin { border-color: var(--gold); }
 .cm.g-lieux, .cm.g-donjons { border-color: #a7bed1; box-shadow: none; }
-.cm.done { opacity: .38; filter: grayscale(1); border-color: var(--fg3); box-shadow: none; }
+.cm.done { position: relative; } /* fait : on garde l'icône, avec une petite coche verte */
+.cm.done::after { content: "✓"; position: absolute; right: -5px; bottom: -5px; width: 15px; height: 15px; border-radius: 50%; background: #4caf6e; color: #fff; font: 700 10px/15px sans-serif; text-align: center; box-shadow: 0 0 0 2px #08121c; }
 .c-region span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(229,241,251,.9); text-shadow: 0 0 6px #000, 0 0 3px #000; pointer-events: none; }
 .c-place span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-family: Georgia, 'Times New Roman', serif; font-size: 11.5px;
   letter-spacing: .17em; text-transform: uppercase; color: rgba(246,240,228,.95); text-shadow: 0 0 4px rgba(0,0,0,.95), 0 0 2px #000; pointer-events: none; }
