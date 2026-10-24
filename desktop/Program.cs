@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.7.0")]
-[assembly: AssemblyFileVersion("2.2.7.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.8.0")]
+[assembly: AssemblyFileVersion("2.2.8.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1266,7 +1266,8 @@ namespace Compagnon
                 { "update", pendingUpdate != null ? pendingUpdate.version : null },
                 { "notes", pendingUpdate != null ? pendingUpdate.notes : null },
                 { "highlights", pendingUpdate != null ? pendingUpdate.highlights : null },
-                { "pages", pendingUpdate != null && Installer.PagesOnly(pendingUpdate) } });
+                { "pages", pendingUpdate != null && Installer.PagesOnly(pendingUpdate) },
+                { "channel", Config.Channel } });
             if (main != null && !main.IsDisposed) main.Post(json);
             if (overlay != null && !overlay.IsDisposed) { overlay.Post(json); overlay.SetUpdate(pendingUpdate != null); }
             if (bubble != null && !bubble.IsDisposed) bubble.SetUpdate(pendingUpdate != null);

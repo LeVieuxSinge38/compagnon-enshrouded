@@ -262,6 +262,7 @@ window.Carte = (() => {
   function setDone(id) {
     const m = byId.get(id); if (!m || !M) { syncSide(); return; }
     const { c, i, big } = m._c, p = c.pts[i], done = opts.isDone(id);
+    M.closePopup(); // marqué ou démarqué : la bulle se ferme
     if (hideDone && done) { M.closePopup(); built.forEach(g => g.removeLayer(m)); byId.delete(id); }
     else if (big) m.setStyle({ fillColor: done ? '#5d6670' : colorOf(c, p[2]), fillOpacity: done ? 0.35 : 0.95 });
     else { const el = m.getElement(); if (el && el.firstChild) el.firstChild.classList.toggle('done', !!done); m.setPopupContent(popupHtml(c, i)); }
