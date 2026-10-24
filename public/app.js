@@ -495,11 +495,14 @@ function itemStatsHtml(en) {
   };
   let h = '';
   const w = WEAPONS.find(x => x.en === en), s = SHIELDS.find(x => x.en === en), r = RINGS.find(x => x.en === en), a = (window.ARMOR_STATS || {})[en];
+  const ws = (window.WEAPON_STATS || {})[en], dmg = ws ? row('Dégâts', ws.d ? esc(ws.d) + (ws.n && ws.n.includes('-') ? ' <span class="muted">(selon le niveau ' + esc(ws.n) + ')</span>' : '') : '') + row('Type de dégâts', esc(ws.t || '')) + row('Vitesse d’attaque', esc(ws.v || '')) + row('Parade', esc(ws.p || '')) + row('Durabilité', esc((ws.du || []).map(x => x[0] + ' ' + x[1]).join(' · '))) : '';
   if (w) {
     h += row('Type', esc((window.WEAPON_TYPE_FR || {})[w.type] || w.type)) + row('Niveau', w.lv) + row('Région', w.biome ? esc(biome(w.biome)) : '') + (w.craft ? row('Fabrication', 'oui') : '');
+    h += dmg;
     const p = perks(w.perks); if (p) h += `<li class="zs-h">Bonus</li>${p}`;
   } else if (s) {
-    h += row('Niveau', s.lv) + row('Blocage', s.block) + row('Parade', s.parry) + row('Protection magique', s.ward);
+    h += row('Niveau', s.lv) + row('Blocage', s.block) + row('Protection magique', s.ward) + (ws && ws.p ? '' : row('Parade', s.parry));
+    h += dmg;
     if ((s.eff || []).length) h += `<li class="zs-h">Effets</li>${s.eff.map(e => `<li>${esc(e)}</li>`).join('')}`;
   } else if (r) {
     h += row('Niveau', r.lv);
