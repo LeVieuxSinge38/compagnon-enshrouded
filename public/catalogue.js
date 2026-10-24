@@ -8,6 +8,9 @@
     '.cat-it{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer;}' +
     '.cat-it:hover{border-color:var(--flame);}' +
     '.cat-it:has(.cat-det){grid-column:1/-1;cursor:default;}' +
+'.cat-drops{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 14px;margin-top:10px;}' +
+    '.cat-boss{width:72px;height:72px;border-radius:12px;object-fit:cover;background:#0b1220;border:1px solid var(--line);flex-shrink:0;}.cat-boss-none{display:grid;place-items:center;font-size:34px;color:var(--fg3);}.cat-it:has(.cat-det) .cat-boss{width:140px;height:140px;}' +
+
     '.cat-it .cat-txt{flex:1;min-width:0;}' +
     '.cat-det{flex-basis:100%;cursor:default;}' +
     '.cat-bar{display:flex;gap:8px;flex-wrap:wrap;}' +
@@ -179,17 +182,22 @@
         bosses[name].push(en);
       });
     });
+    Object.keys(window.BOSS_EN || {}).forEach(function (n) { if (!bosses[n]) bosses[n] = []; }); // aussi les boss de la carte sans butin connu
     var names = Object.keys(bosses).sort().filter(function (n) { return matches(state.catQ, n, n); });
     h += '<div class="cat-grid">';
     names.forEach(function (name) {
       var arg = 'boss:' + name;
       h += '<div class="cat-it" data-act="catOpen" data-arg="' + esc(arg) + '">';
+      h += (window.BOSS_IMG && BOSS_IMG[name]) ? '<img class="cat-boss" src="' + esc(BOSS_IMG[name]) + '" alt="">' : '<span class="cat-boss cat-boss-none"><i class="gi gi-death-skull"></i></span>';
       h += '<div class="cat-txt">';
       h += '<strong>' + esc(name) + '</strong>';
+      if (window.BOSS_EN && BOSS_EN[name] && BOSS_EN[name] !== name) h += '<div class="small muted">' + esc(BOSS_EN[name]) + '</div>';
       h += '<div class="small muted">' + bosses[name].length + ' objet(s) possible(s)</div>';
       h += '</div>';
       if (state.catSel === arg) {
         var det = '<div data-act="catNoop">';
+        det += '<button class="btn sm pri" data-act="catBossMap" data-arg="' + esc(name) + '"><i class="gi gi-treasure-map"></i> Voir sur la carte</button>\n';
+        det += '<div class="cat-drops">';
         bosses[name].forEach(function (en) {
           var fr = findFR(en);
           det += '<div style="display:flex;align-items:center;gap:8px;margin:4px 0;">';
@@ -197,7 +205,7 @@
           det += '<span>' + esc(fr) + '</span>';
           det += '</div>';
         });
-        det += '<button class="btn sm pri" data-act="catBossMap" data-arg="' + esc(name) + '"><i class="gi gi-treasure-map"></i> Voir sur la carte</button>';
+        det += '</div>';
         det += '</div>';
         h += '<div class="cat-det">' + det + '</div>';
       }

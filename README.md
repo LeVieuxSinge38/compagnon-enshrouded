@@ -52,6 +52,7 @@ Tu trouves un bug, tu as une idée, un truc qui cloche ? Ouvre un ticket dans l'
 - Icônes : [game-icons.net](https://game-icons.net) — licence CC BY 3.0, auteurs **Lorc**, **Delapouite** et contributeurs.
 - Police **Cinzel** — SIL Open Font License.
 - **Leaflet** — licence BSD-2.
+- Images des boss : [enshrouded.wiki.gg](https://enshrouded.wiki.gg).
 
 ---
 
