@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.10.0")]
-[assembly: AssemblyFileVersion("2.2.10.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.11.0")]
+[assembly: AssemblyFileVersion("2.2.11.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1299,6 +1299,9 @@ namespace Compagnon
         static int Gh(string args, out string output)
         {
             var psi = new ProcessStartInfo(GhPath(), args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
+            psi.EnvironmentVariables["APPDATA"] = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); // gh y range sa connexion
+            psi.EnvironmentVariables["LOCALAPPDATA"] = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            psi.EnvironmentVariables["USERPROFILE"] = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             using (var p = Process.Start(psi))
             {
                 string o = p.StandardOutput.ReadToEnd(), e = p.StandardError.ReadToEnd();
