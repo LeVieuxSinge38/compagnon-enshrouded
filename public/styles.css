@@ -523,3 +523,6 @@ body[data-view="carte"] main { max-width: none; padding: 14px 16px 14px; }
   background: radial-gradient(circle at 50% 40%, #1b3550, #0a141f 75%); border: 1px solid rgba(143,208,245,.45); box-shadow: 0 0 50px rgba(143,208,245,.2), 0 20px 50px rgba(0,0,0,.6); }
 .zoom-in img { width: min(256px, 70vw); height: auto; filter: drop-shadow(0 8px 18px rgba(0,0,0,.7)); }
 .zoom-in b { font-size: 20px; }
+.zoom-stats { list-style: none; margin: 0; padding: 10px 14px; max-width: 440px; text-align: left; font-size: 14px; line-height: 1.45; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.zoom-stats b { font-size: 14px; }
+.zoom-stats .zs-h { margin-top: 8px; font-family: Cinzel, serif; color: var(--flame); font-size: 13px; letter-spacing: .06em; }

@@ -485,11 +485,36 @@ ACTIONS.lootMap = arg => {
 };
 // Image d'un objet cliquable : clic = grande image au milieu de l'écran (images du jeu en 256 px)
 const zoomIcon = (en, size, fr) => ITEM_ICONS[en] ? `<button class="zoom-ico" data-act="zoomItem" data-arg="${esc(en)}|${esc(fr || en)}" title="Voir en grand">${itemIcon(en, size)}</button>` : '';
+// Caractéristiques d'un objet (fenêtre de la grande image) : armes, boucliers, anneaux, pièces d'armure
+function itemStatsHtml(en) {
+  const row = (k, v) => v || v === 0 ? `<li><span class="muted">${k}</span> <b>${v}</b></li>` : '';
+  const biome = b => { const x = (window.BIOMES || []).find(y => y.id === b); return x ? x.fr : b; };
+  const perks = list => {
+    const n = {}; (list || []).forEach(p => { n[p] = (n[p] || 0) + 1; });
+    return Object.keys(n).map(p => { const t = (window.PERKS || {})[p]; return `<li><b>${esc(t ? t[0] : p)}</b>${n[p] > 1 ? ` ×${n[p]}` : ''}${t && t[1] ? ` — <span class="muted">${esc(t[1])}</span>` : ''}</li>`; }).join('');
+  };
+  let h = '';
+  const w = WEAPONS.find(x => x.en === en), s = SHIELDS.find(x => x.en === en), r = RINGS.find(x => x.en === en), a = (window.ARMOR_STATS || {})[en];
+  if (w) {
+    h += row('Type', esc((window.WEAPON_TYPE_FR || {})[w.type] || w.type)) + row('Niveau', w.lv) + row('Région', w.biome ? esc(biome(w.biome)) : '') + (w.craft ? row('Fabrication', 'oui') : '');
+    const p = perks(w.perks); if (p) h += `<li class="zs-h">Bonus</li>${p}`;
+  } else if (s) {
+    h += row('Niveau', s.lv) + row('Blocage', s.block) + row('Parade', s.parry) + row('Protection magique', s.ward);
+    if ((s.eff || []).length) h += `<li class="zs-h">Effets</li>${s.eff.map(e => `<li>${esc(e)}</li>`).join('')}`;
+  } else if (r) {
+    h += row('Niveau', r.lv);
+    if ((r.eff || []).length) h += `<li class="zs-h">Effets</li>${r.eff.map(e => `<li>${esc(e)}</li>`).join('')}`;
+  } else if (a) {
+    h += row('Armure physique', a[0]) + row('Armure magique', a[1]) + row('Niveau de l’objet', a[3]);
+    if ((a[2] || []).length) h += `<li class="zs-h">Bonus</li>${a[2].map(e => `<li>${esc(e)}</li>`).join('')}`;
+  }
+  return h ? `<ul class="zoom-stats">${h}</ul>` : '';
+}
 ACTIONS.zoomItem = arg => {
   const [en, fr] = String(arg).split('|');
   const box = document.createElement('div');
   box.className = 'zoom-box';
-  box.innerHTML = `<div class="zoom-in"><img src="img/items/${esc(ITEM_ICONS[en])}" alt=""><b>${esc(fr)}</b><span class="small muted">Clic ou Échap pour fermer</span></div>`;
+  box.innerHTML = `<div class="zoom-in"><img src="img/items/${esc(ITEM_ICONS[en])}" alt=""><b>${esc(fr)}</b>${itemStatsHtml(en)}<span class="small muted">Clic ou Échap pour fermer</span></div>`;
   const close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   box.addEventListener('click', close);
