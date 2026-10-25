@@ -28,6 +28,7 @@ window.Local = (() => {
     if (d.type === 'fetch' && waiting[d.id]) { const w = waiting[d.id]; delete waiting[d.id]; d.ok ? w.resolve(d.text) : w.reject(new Error('Réseau indisponible')); }
     if (d.type === 'migrate') onMigrate(d);
     if (d.type === 'saves') onSaves(d);
+    if (d.type === 'screens') onScreens(d);
   }
 
   // ---------- Données du personnage actif ----------
@@ -181,6 +182,8 @@ window.Local = (() => {
         <p class="small muted">Le Compagnon lit (sans jamais les modifier) les sauvegardes de tes personnages.</p>
         <div class="small">${dirs.length ? dirs.map(d => `<div><i class="gi gi-open-folder"></i> ${esc(d)}</div>`).join('') : '<span class="muted">Aucun dossier trouvé.</span>'}</div>
         <div class="row"><button class="btn sm" data-act="pickSaveDir"><i class="gi gi-open-folder"></i> Choisir le dossier</button><button class="btn sm ghost" data-act="autoSaveDir">Trouver tout seul (Steam)</button></div>
+        <h3>Écran du Compagnon</h3>
+        <label class="field">Clic droit sur la bulle en jeu : le Compagnon s'ouvre en plein écran sur<select id="sScreen"><option>Chargement…</option></select></label>
         <h3>Démarrage</h3>
         <label class="wz-opt"><input type="checkbox" id="sSound" ${p.settings.sound ? 'checked' : ''}><span><b>Musique de l'intro</b><small>Quelques secondes au démarrage.</small></span></label>
         <h3>Copie de sécurité</h3>
@@ -189,6 +192,12 @@ window.Local = (() => {
       </div>
     </div>
     <p class="small muted" style="margin-top:18px">Icônes : game-icons.net (CC BY 3.0) · Police des titres : Cinzel (OFL) · Données : wiki Enshrouded.</p>`;
+  }
+
+  // ---------- Écran du Compagnon en grand (liste fournie par l'appli Windows) ----------
+  function onScreens(d) {
+    const sel = $('#sScreen'); if (!sel) return;
+    sel.innerHTML = (d.list || []).map(s => `<option value="${esc(s.id)}" ${s.id === d.current ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
   }
 
   // ---------- Démarrage ----------
@@ -202,6 +211,7 @@ window.Local = (() => {
     AFTER.settings = () => {
       $('#sName').addEventListener('change', e => { const p = Profil.get(); p.name = e.target.value.trim() || p.name; Profil.set(p); toast('Nom enregistré'); });
       $('#sFollow').addEventListener('change', e => { const p = Profil.get(); p.settings.follow = e.target.checked; Profil.set(p); });
+      if (appHost) { appHost.postMessage('screens'); $('#sScreen').addEventListener('change', e => { appHost.postMessage('setScreen:' + e.target.value); toast('Écran enregistré'); }); } else { const s = $('#sScreen'); if (s) s.closest('label').hidden = true; }
       $('#sSound').addEventListener('change', e => { const p = Profil.get(); p.settings.sound = e.target.checked; Profil.set(p); try { localStorage.setItem('ens.introSon', String(e.target.checked)); } catch { /* ignoré */ } });
       $('#sImport').addEventListener('change', async e => {
         const f = e.target.files[0]; if (!f) return;

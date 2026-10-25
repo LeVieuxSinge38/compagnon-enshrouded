@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.14.0")]
-[assembly: AssemblyFileVersion("2.2.14.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.15.0")]
+[assembly: AssemblyFileVersion("2.2.15.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -113,6 +113,7 @@ namespace Compagnon
         public static double Opacity = 0.92;
         public static Rectangle OverlayBounds = Rectangle.Empty;
         public static bool Collapsed = false;              // overlay réduit en bulle
+        public static string MainScreen = "";              // écran où s'ouvre le Compagnon en grand (clic droit sur la bulle)
         public static string Channel = "";                 // "test" = reçoit les versions de test du développeur
         public static Point BubblePos = new Point(-1, -1);
 
@@ -137,6 +138,7 @@ namespace Compagnon
             }
             if (d.TryGetValue("Collapsed", out v)) Collapsed = v == "1";
             if (d.TryGetValue("Channel", out v)) Channel = v.Trim().ToLowerInvariant();
+            if (d.TryGetValue("MainScreen", out v)) MainScreen = v.Trim();
             if (d.TryGetValue("Bubble", out v))
             {
                 var p = v.Split(',').Select(s => { int n; return int.TryParse(s, out n) ? n : -1; }).ToArray();
@@ -154,6 +156,7 @@ namespace Compagnon
                 "Overlay=" + b.X + "," + b.Y + "," + b.Width + "," + b.Height,
                 "Collapsed=" + (Collapsed ? "1" : "0"),
                 "Channel=" + Channel,
+                "MainScreen=" + MainScreen,
                 "Bubble=" + BubblePos.X + "," + BubblePos.Y
             });
         }
@@ -725,7 +728,7 @@ namespace Compagnon
         bool update;                      // mise à jour disponible : la bulle clignote
         Point downAt;
         bool dragging;
-        public event Action Clicked;
+        public event Action Clicked, RightClicked;
         readonly Bitmap logo;             // logo du Compagnon (lanterne), intégré à l'exe (ressource « logo.png »)
         readonly System.Windows.Forms.Timer anim = new System.Windows.Forms.Timer { Interval = 40 };
         readonly Stopwatch clock = Stopwatch.StartNew();
@@ -875,6 +878,7 @@ namespace Compagnon
         {
             base.OnMouseUp(e);
             if (e.Button == MouseButtons.Left && !dragging && Clicked != null) Clicked();
+            if (e.Button == MouseButtons.Right && RightClicked != null) RightClicked(); // clic droit : le Compagnon en grand
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -1152,6 +1156,25 @@ namespace Compagnon
             CheckUpdate(false);
         }
 
+        // Écran choisi dans les Paramètres ; sinon le premier écran secondaire ; sinon l'écran principal
+        static Screen TargetScreen()
+        {
+            var all = Screen.AllScreens;
+            return all.FirstOrDefault(x => x.DeviceName == Config.MainScreen) ?? all.FirstOrDefault(x => !x.Primary) ?? Screen.PrimaryScreen;
+        }
+
+        // Clic droit sur la bulle : la fenêtre du Compagnon en plein écran sur cet écran
+        void ShowMainBig()
+        {
+            ShowMain();
+            var s = TargetScreen();
+            main.WindowState = FormWindowState.Normal;
+            main.StartPosition = FormStartPosition.Manual;
+            main.Bounds = s.WorkingArea;
+            main.WindowState = FormWindowState.Maximized;
+            main.Activate();
+        }
+
         void ShowMain()
         {
             Wake();
@@ -1194,7 +1217,7 @@ namespace Compagnon
         {
             get
             {
-                if (bubble == null || bubble.IsDisposed) { bubble = new BubbleForm(); bubble.Clicked += Expand; bubble.SetCount(badge); bubble.SetUpdate(pendingUpdate != null); }
+                if (bubble == null || bubble.IsDisposed) { bubble = new BubbleForm(); bubble.Clicked += Expand; bubble.RightClicked += ShowMainBig; bubble.SetCount(badge); bubble.SetUpdate(pendingUpdate != null); }
                 return bubble;
             }
         }
@@ -1386,6 +1409,13 @@ namespace Compagnon
             }
             else if (m == "autoSaveDir") { Config.SaveDir = ""; Config.Save(); RestartSaves(); }
             else if (m.StartsWith("publish:")) Publish(m.Substring(8), reply);
+            else if (m == "screens")
+            {
+                var all = Screen.AllScreens;
+                var list = all.Select((s, i) => new Dictionary<string, object> { { "id", s.DeviceName }, { "name", "Écran " + (i + 1) + " (" + s.Bounds.Width + "×" + s.Bounds.Height + ")" + (s.Primary ? " — principal" : "") } }).ToList();
+                reply(new Dictionary<string, object> { { "type", "screens" }, { "list", list }, { "current", TargetScreen().DeviceName } });
+            }
+            else if (m.StartsWith("setScreen:")) { Config.MainScreen = m.Substring(10); Config.Save(); }
         }
 
         void RestartSaves()
