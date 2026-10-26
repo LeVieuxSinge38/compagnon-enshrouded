@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.15.0")]
-[assembly: AssemblyFileVersion("2.2.15.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.16.0")]
+[assembly: AssemblyFileVersion("2.2.16.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
@@ -1279,7 +1279,7 @@ namespace Compagnon
                 Wake();
                 if (Config.ShowWithGame) { Config.Collapsed = true; Config.Save(); ShowPanel(); } // au lancement du jeu : toujours la bulle
             }
-            else { HidePanel(); Sleep(); }
+            else { HidePanel(); if (main != null && !main.IsDisposed) main.Hide(); Sleep(); }   // jeu fermé : tout se ferme, retour au guet
         }
 
         // Informe les pages (menu de l'appli, overlay) et la bulle : version actuelle et mise à jour disponible
