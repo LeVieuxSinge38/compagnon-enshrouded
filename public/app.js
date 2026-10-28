@@ -475,6 +475,36 @@ function gemBlock(w) {
     ${spare ? `<div class="small" style="margin-top:6px">De rechange : ${gemLine(spare)} — <span class="muted">${esc(gemEffect(spare))}</span></div>` : ''}</div>`;
 }
 const gemsHtml = () => `<p class="small muted"><i class="gi gi-ring"></i> Une pierre précieuse se sertit dans une arme et sa puissance suit le niveau de l'arme : clique une arme pour voir celle qui lui convient.</p>`;
+// Tuile de pierre sous l'arme : image + nom court, clic → fenêtre de détail de la pierre
+const gemShort = g => g.fr.replace(/^Pierre précieuse (d'|de la |de l'|du |des |de )?/, '');
+const gemTile = (g, wen) => `<span class="gem-tile" role="button" tabindex="0" data-act="gemOpen" data-arg="${esc(g.key)}|${esc(wen)}" title="${esc(g.fr)} (${esc(g.rar)}) — clic pour les détails">${zoomless(g.en)}<span class="gem-tile-n">${esc(gemShort(g))}</span></span>`;
+const zoomless = en => ITEM_ICONS[en] ? `<img class="gem-tile-img" src="img/items/${esc(ITEM_ICONS[en])}" alt="" loading="lazy">` : '<i class="gi gi-ring"></i>';
+const RAR_SLUG = { 'Ordinaire': 'ordinaire', 'Peu courant': 'peu-courant', 'Rare': 'rare', 'Épique': 'epique', 'Légendaire': 'legendaire' };
+ACTIONS.gemOpen = (arg, el, e) => {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const [key, wen] = String(arg).split('|');
+  const g = (window.GEMS || []).find(x => x.key === key);
+  if (!g) return;
+  document.querySelectorAll('.gem-box').forEach(b => b._close());
+  const w = WEAPONS.find(x => x.en === wen), ctx = { shield: !!(LOADOUT[state.mybuild] || {}).off }, fit = GEM_FIT[g.key];
+  const types = fit ? [...new Set(WEAPONS.filter(x => fit[0](x, ctx)).map(x => WTYPE(x.type)))] : [];
+  const spare = w ? gemsForWeapon(w, state.mybuild, 3).find(x => x.key !== g.key) : null;
+  const box = document.createElement('div');
+  box.className = 'zoom-box gem-box';
+  box.innerHTML = `<div class="zoom-in gem-detail r-${RAR_SLUG[g.rar] || 'ordinaire'}">
+    ${ITEM_ICONS[g.en] ? `<img src="img/items/${esc(ITEM_ICONS[g.en])}" alt="">` : ''}<b>${esc(g.fr)}</b><span class="chip gem-rar">${esc(g.rar)}</span>
+    <ul class="zoom-stats"><li>${esc(gemEffect(g))}</li>${(g.fx || []).map(f => `<li>${esc(f)}</li>`).join('')}
+      <li class="zs-h">Où la trouver</li><li>${esc(g.lead || 'Origine inconnue pour le moment.')}</li>
+      <li class="zs-h">Convient aux armes</li><li>${fit ? esc(types.join(', ') || '—') : 'Toutes les armes'}</li>
+      ${spare ? `<li class="zs-h">Pierre de rechange</li><li><span class="gem-spare">${gemTile(spare, wen)}</span> <span class="muted">${esc(gemEffect(spare))}</span></li>` : ''}</ul>
+    <button class="btn sm" data-close>Fermer</button></div>`;
+  const onKey = ev => { if (ev.key === 'Escape') box._close(); };
+  box._close = () => { box.remove(); document.removeEventListener('keydown', onKey); };
+  box.addEventListener('click', ev => { if (!ev.target.closest('[data-act]') && (ev.target === box || ev.target.closest('[data-close]'))) box._close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(box);
+};
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('gem-tile')) { e.preventDefault(); e.stopPropagation(); e.target.click(); } });
 state.charSlot = null;
 // Meilleure arme d'une liste de types pour le niveau : la plus haute disponible, fabricable ou unique d'abord, puis les effets recherchés
 function pickWeapons(types, lv, build) {
@@ -597,7 +627,7 @@ function slotHtml(key, s, pre = 'a') {
   const own = it && state.owned[it.en], k = `${pre}:${key}`;
   return `<button class="slot ${state.charSlot === k ? 'on' : ''} ${it ? (it.craft ? 'craft' : 'loot') : 'empty'} ${own ? 'owned' : ''}" data-act="charSlot" data-arg="${k}">
     ${it ? `<span class="slot-own" data-act="ownToggle" data-arg="${esc(it.en)}" title="${own ? 'Je l\'ai — clic pour décocher' : 'Je l\'ai déjà'}">${own ? '✓' : ''}</span>` : ''}
-    <span class="slot-ico">${it && ITEM_ICONS[it.en] ? itemIcon(it.en, 38) : SLOT_ICON[key]}</span><span class="slot-t"><small>${esc(s.label)}</small><b>${it ? esc(it.fr) : '—'}</b><small>${sub}${src ? ' · ' + escIco(src) : ''}</small>${s.kind === 'weapon' && it ? ((g) => g ? `<small class="gem-mini">Pierre : ${esc(g.fr.replace(/^Pierre précieuse /, ''))}</small>` : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : ''}</span></button>`;
+    <span class="slot-ico">${it && ITEM_ICONS[it.en] ? itemIcon(it.en, 38) : SLOT_ICON[key]}</span><span class="slot-t"><small>${esc(s.label)}</small><b>${it ? esc(it.fr) : '—'}</b><small>${sub}${src ? ' · ' + escIco(src) : ''}</small></span>${s.kind === 'weapon' && it ? ((g) => g ? gemTile(g, it.en) : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : ''}</button>`;
 }
 // Un écran d'équipement façon jeu (armes et anneaux à gauche, résumé au centre, armure à droite)
 function dollHtml(lo, pre, center) {

@@ -530,3 +530,16 @@ body[data-view="carte"] main { max-width: none; padding: 14px 16px 14px; }
 .gem-line { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
 .gem-mini { color: var(--flame2); }
 .gem-pick { margin: 8px 0; }
+/* Tuile de pierre sous l'arme + fenêtre de détail de la pierre */
+.slot:has(.gem-tile) { flex-wrap: wrap; }
+.gem-tile { flex: 1 0 100%; display: flex; align-items: center; gap: 8px; margin-top: 2px; padding: 4px 8px; border-radius: 999px; cursor: pointer;
+  background: radial-gradient(circle at 20% 50%, rgba(143,208,245,.22), rgba(8,16,26,.8)); border: 1px solid rgba(143,208,245,.4); box-shadow: inset 0 0 8px rgba(143,208,245,.15); }
+.gem-tile:hover, .gem-tile:focus-visible { border-color: var(--flame); box-shadow: 0 0 12px rgba(143,208,245,.5); outline: none; }
+.gem-tile-img { width: 34px; height: 34px; flex-shrink: 0; filter: drop-shadow(0 0 5px rgba(143,208,245,.7)); }
+.gem-tile-n { font-size: 13px; font-weight: 600; color: var(--flame2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.gem-detail { --rc: #9aa7b3; border-color: var(--rc); }
+.gem-detail.r-peu-courant { --rc: #7ccf98; } .gem-detail.r-rare { --rc: #5db4ec; } .gem-detail.r-epique { --rc: #b48be6; } .gem-detail.r-legendaire { --rc: #e8d27a; }
+.gem-detail { box-shadow: 0 0 50px color-mix(in srgb, var(--rc) 35%, transparent), 0 20px 50px rgba(0,0,0,.6); max-height: 92vh; overflow: auto; cursor: default; }
+.gem-detail img { filter: drop-shadow(0 0 18px var(--rc)); }
+.gem-detail .gem-rar { color: var(--rc); border-color: var(--rc); }
+.gem-spare .gem-tile { display: inline-flex; flex: none; }
