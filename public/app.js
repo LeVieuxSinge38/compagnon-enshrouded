@@ -434,12 +434,47 @@ function gemsFor(buildId, n = 6) {
     .sort((a, b) => b.score - a.score || GEM_RANK.indexOf(a.g.rar) - GEM_RANK.indexOf(b.g.rar) || a.g.fr.localeCompare(b.g.fr, 'fr'))
     .slice(0, n).map(x => x.g);
 }
-const gemCard = g => `<li class="gem-card">${zoomIcon(g.en, 44, g.fr)}<div><b>${esc(g.fr)}</b> <span class="muted small">(${esc(g.en)})</span> <span class="chip">${esc(g.rar)}</span>
-  <div class="small">${g.fx.map(esc).join(' · ')}</div><div class="small muted">${esc(g.desc)}</div>
-  <div class="small"><i class="gi gi-position-marker"></i> ${esc(g.lead || 'Origine inconnue pour le moment.')}</div></div></li>`;
-const gemsHtml = id => `<h2 style="margin-top:22px"><i class="gi gi-ring"></i> Mes pierres précieuses <span class="muted small">— à sertir dans tes armes</span></h2>
-  <div class="card"><p class="small muted" style="margin-top:0">Une pierre se place dans une arme et sa puissance suit le niveau de l'arme. Voici celles dont les effets collent le mieux à ton style de jeu.</p>
-  <ul class="alts gems">${gemsFor(id).map(gemCard).join('') || '<li class="muted">Aucune pierre ne ressort pour ce build.</li>'}</ul></div>`;
+// Quelle pierre va sur quelle arme : chaque pierre n'est proposée que si son effet s'applique à l'arme (type, dégâts élémentaires, bouclier du build)
+const W_SHARP = ['One-handed Sword', 'One-handed Axe', 'Two-handed Axe', 'Two-handed Greatsword', 'Daggers'], W_BLUNT = ['One-handed Club', 'Two-handed Club', 'Two-handed Hammer'];
+const W_MAGIC = ['Wand', 'Staff'], W_MELEE = [...W_SHARP, ...W_BLUNT];
+const wHas = (w, perk) => (w.perks || []).includes(perk);
+// [règle, spécifique à un type d'arme ?] — les pierres absentes de cette table valent pour toutes les armes
+const GEM_FIT = {
+  'gem-of-agility': [w => W_SHARP.includes(w.type), 1], 'gem-of-swiftness': [w => W_SHARP.includes(w.type), 1],
+  'gem-of-bloodlust': [w => W_SHARP.includes(w.type), 1], 'gem-of-bleeding': [w => W_SHARP.includes(w.type), 1],
+  'gem-of-fracturing': [w => W_BLUNT.includes(w.type), 1], 'gem-of-retaliation': [(w, c) => W_BLUNT.includes(w.type) && c.shield, 1],
+  'gem-of-puncturing': [w => w.type === 'Bow', 1], 'gem-of-aerobatics': [w => w.type === 'Bow', 0],
+  'gem-of-burning': [w => wHas(w, 'Magic Fire Damage'), 1], 'gem-of-meteoric-impact': [w => wHas(w, 'Magic Fire Damage'), 1],
+  'gem-of-currents': [w => wHas(w, 'Magic Shock Damage'), 1], 'gem-of-storms-eye': [w => wHas(w, 'Magic Shock Damage') || W_MAGIC.includes(w.type), 1],
+  'gem-of-corruption': [w => wHas(w, 'Magic Shroud Damage') || W_MAGIC.includes(w.type), 1],
+  'gem-of-skulls': [w => ['Daggers', 'Bow'].includes(w.type), 1], 'gem-of-toxic-betrayal': [w => ['Daggers', 'Bow'].includes(w.type), 1],
+  'gem-of-overpowering': [w => W_MELEE.includes(w.type), 1], 'gem-of-lycanthropy': [w => W_MELEE.includes(w.type), 1],
+  'gem-of-cold-composure': [(w, c) => w.type === 'Bow' || c.shield, 1], 'gem-of-focused-light': [(w, c) => w.type === 'Bow' || W_MAGIC.includes(w.type) || c.shield, 1]
+};
+// Les pierres qui vont sur cette arme (meilleure d'abord) : mots-clés du build + bonus si la pierre est faite pour ce type d'arme
+function gemsForWeapon(w, buildId, n = 2) {
+  if (!w) return [];
+  const prefs = GEM_PREF[buildId] || [], L = LOADOUT[buildId] || {}, ctx = { shield: !!L.off };
+  return (window.GEMS || []).map(g => {
+    const fit = GEM_FIT[g.key];
+    if (fit && !fit[0](w, ctx)) return null;
+    const txt = `${g.fr} ${g.fx.join(' ')} ${g.desc}`.toLowerCase();
+    return { g, score: prefs.reduce((t, [k, x]) => t + (txt.includes(k) ? x : 0), 0) + (fit && fit[1] ? 4 : 0) };
+  }).filter(Boolean)
+    .sort((a, b) => b.score - a.score || GEM_RANK.indexOf(a.g.rar) - GEM_RANK.indexOf(b.g.rar) || a.g.fr.localeCompare(b.g.fr, 'fr'))
+    .slice(0, n).map(x => x.g);
+}
+const gemEffect = g => g.desc.split(/(?<=\.)\s/)[0].replace(/\s*Les valeurs? .*$/, '');
+const gemLine = g => `<span class="gem-line">${zoomIcon(g.en, 22, g.fr)} <b>${esc(g.fr)}</b></span>`;
+// Bloc « Pierre à sertir » du détail d'une arme : la pierre conseillée (effet, où la trouver) et une pierre de rechange
+function gemBlock(w) {
+  const [g, spare] = gemsForWeapon(w, state.mybuild);
+  if (!g) return '';
+  return `<div class="card gem-pick"><h3 style="margin:0 0 6px"><i class="gi gi-ring"></i> Pierre à sertir : ${gemLine(g)} <span class="chip">${esc(g.rar)}</span></h3>
+    <div class="small">${esc(gemEffect(g))}</div><div class="small muted"><i class="gi gi-position-marker"></i> ${esc(g.lead || 'Origine inconnue pour le moment.')}</div>
+    ${spare ? `<div class="small" style="margin-top:6px">De rechange : ${gemLine(spare)} — <span class="muted">${esc(gemEffect(spare))}</span></div>` : ''}</div>`;
+}
+const gemsHtml = () => `<p class="small muted"><i class="gi gi-ring"></i> Une pierre précieuse se sertit dans une arme et sa puissance suit le niveau de l'arme : clique une arme pour voir celle qui lui convient.</p>`;
 state.charSlot = null;
 // Meilleure arme d'une liste de types pour le niveau : la plus haute disponible, fabricable ou unique d'abord, puis les effets recherchés
 function pickWeapons(types, lv, build) {
@@ -562,7 +597,7 @@ function slotHtml(key, s, pre = 'a') {
   const own = it && state.owned[it.en], k = `${pre}:${key}`;
   return `<button class="slot ${state.charSlot === k ? 'on' : ''} ${it ? (it.craft ? 'craft' : 'loot') : 'empty'} ${own ? 'owned' : ''}" data-act="charSlot" data-arg="${k}">
     ${it ? `<span class="slot-own" data-act="ownToggle" data-arg="${esc(it.en)}" title="${own ? 'Je l\'ai — clic pour décocher' : 'Je l\'ai déjà'}">${own ? '✓' : ''}</span>` : ''}
-    <span class="slot-ico">${it && ITEM_ICONS[it.en] ? itemIcon(it.en, 38) : SLOT_ICON[key]}</span><span class="slot-t"><small>${esc(s.label)}</small><b>${it ? esc(it.fr) : '—'}</b><small>${sub}${src ? ' · ' + escIco(src) : ''}</small></span></button>`;
+    <span class="slot-ico">${it && ITEM_ICONS[it.en] ? itemIcon(it.en, 38) : SLOT_ICON[key]}</span><span class="slot-t"><small>${esc(s.label)}</small><b>${it ? esc(it.fr) : '—'}</b><small>${sub}${src ? ' · ' + escIco(src) : ''}</small>${s.kind === 'weapon' && it ? ((g) => g ? `<small class="gem-mini">Pierre : ${esc(g.fr.replace(/^Pierre précieuse /, ''))}</small>` : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : ''}</span></button>`;
 }
 // Un écran d'équipement façon jeu (armes et anneaux à gauche, résumé au centre, armure à droite)
 function dollHtml(lo, pre, center) {
@@ -601,6 +636,7 @@ function slotDetail(key, s, lo) {
   } else if (s.kind === 'weapon') {
     body = `<p class="small">${esc(WTYPE(it.type))}${it.lv ? ` · niveau ${it.lv} environ` : ''} · ${it.craft ? '<i class="gi gi-hammer-drop"></i> se fabrique' + (craftAt(it.en) ? ' chez : ' + esc(craftAt(it.en)) : '') : it.lore ? '<i class="gi gi-scroll-quill"></i> arme unique (lore)' : `<i class="gi gi-rolling-dices"></i> tombe au hasard dans les coffres et sur les boss${it.biome ? ' (' + esc(biomeFr(it.biome)) + ')' : ''}`}${it.other.length ? ' · aussi : ' + it.other.map(esc).join(', ') : ''}</p>
       <ul class="small">${it.perks.map(p => `<li><b>${esc((PERKS[p] || [p])[0])}</b> <span class="muted">— ${esc((PERKS[p] || [, ''])[1])}</span></li>`).join('')}</ul>
+      ${gemBlock(it)}
       ${provHtml(it.en)}${RECIPES[it.en] ? `<a class="btn sm" data-go="craft|${esc(it.en)}"><i class="gi gi-hammer-drop"></i> Voir la recette</a>` : ''}`;
   } else if (s.kind === 'shield') {
     body = `<p class="small">Blocage ${it.block} · puissance de parade ${it.parry}${it.eff.length ? ' · ' + it.eff.map(esc).join(' · ') : ''}</p>

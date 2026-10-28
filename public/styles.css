@@ -527,3 +527,6 @@ body[data-view="carte"] main { max-width: none; padding: 14px 16px 14px; }
 .zoom-stats b { font-size: 14px; }
 .zoom-stats .zs-h { margin-top: 8px; font-family: Cinzel, serif; color: var(--flame); font-size: 13px; letter-spacing: .06em; }
 .gems .gem-card { display: flex; gap: 10px; align-items: flex-start; }
+.gem-line { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.gem-mini { color: var(--flame2); }
+.gem-pick { margin: 8px 0; }
