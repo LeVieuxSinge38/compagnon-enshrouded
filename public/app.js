@@ -411,6 +411,35 @@ const PERK_PREF = { // effets d'arme recherchés par build
 const RING_PREF = { guardian: ['health', 'stamina'], barbarian: ['health', 'stamina'], ranger: ['stamina', 'health'], assassin: ['stamina', 'stamina'],
   battlemage: ['mana', 'mana'], wizard: ['mana', 'mana'], healer: ['mana', 'health'], explorer: ['stamina', 'health'] };
 const WTYPE = t => WEAPON_TYPE_FR[t] || t;
+// Pierres précieuses (data/gems.js) : se sertissent dans les armes et évoluent avec leur niveau (le jeu ne donne pas d'emplacement précis)
+// Mots-clés recherchés (nom, effets, description) selon le style du build : [mot-clé, poids]
+const GEM_PREF = {
+  guardian: [['bloqu', 3], ['contondant', 2], ['armure', 2], ['résistance', 2], ['santé max', 2], ['insensible', 2], ['tranchant', 1], ['endurance', 1]],
+  barbarian: [['contondant', 2], ['tranchant', 2], ['coupure', 2], ['mêlée', 2], ['saignement', 2], ['endurance', 1], ['santé max', 1]],
+  ranger: [['projectile', 3], ['perforant', 3], ['perforation', 2], ['viser', 2], ['visant', 2], ['esquive', 1]],
+  assassin: [['furtive', 3], ['sournoise', 3], ['impitoyable', 2], ['tranchant', 2], ['coupure', 2], ['poison', 2], ['esquive', 2], ['critique', 2]],
+  battlemage: [['mana', 2], ['foudre', 2], ['feu', 2], ['glace', 2], ['choc', 2], ['brûlure', 2], ['bloqu', 1]],
+  wizard: [['mana', 3], ['feu', 2], ['foudre', 2], ['glace', 2], ['brume', 2], ['brûlure', 2], ['choc', 2], ['marque', 1]],
+  healer: [['soigne', 3], ['santé', 2], ['mana', 2], ['orbe', 2], ['régénération', 2], ['allié', 2]],
+  explorer: [['orbe', 2], ['vol plané', 2], ['endurance', 2], ['brume', 2], ['santé', 1], ['crâne', 1]]
+};
+const GEM_RANK = ['Légendaire', 'Épique', 'Rare', 'Peu courant', 'Ordinaire'];
+// Les n meilleures pierres pour un build : score = somme des poids des mots-clés trouvés, puis rareté, puis ordre alphabétique
+function gemsFor(buildId, n = 6) {
+  const prefs = GEM_PREF[buildId] || [];
+  return (window.GEMS || []).map(g => {
+    const txt = `${g.fr} ${g.fx.join(' ')} ${g.desc}`.toLowerCase();
+    return { g, score: prefs.reduce((t, [k, w]) => t + (txt.includes(k) ? w : 0), 0) };
+  }).filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score || GEM_RANK.indexOf(a.g.rar) - GEM_RANK.indexOf(b.g.rar) || a.g.fr.localeCompare(b.g.fr, 'fr'))
+    .slice(0, n).map(x => x.g);
+}
+const gemCard = g => `<li class="gem-card">${zoomIcon(g.en, 44, g.fr)}<div><b>${esc(g.fr)}</b> <span class="muted small">(${esc(g.en)})</span> <span class="chip">${esc(g.rar)}</span>
+  <div class="small">${g.fx.map(esc).join(' · ')}</div><div class="small muted">${esc(g.desc)}</div>
+  <div class="small"><i class="gi gi-position-marker"></i> ${esc(g.lead || 'Origine inconnue pour le moment.')}</div></div></li>`;
+const gemsHtml = id => `<h2 style="margin-top:22px"><i class="gi gi-ring"></i> Mes pierres précieuses <span class="muted small">— à sertir dans tes armes</span></h2>
+  <div class="card"><p class="small muted" style="margin-top:0">Une pierre se place dans une arme et sa puissance suit le niveau de l'arme. Voici celles dont les effets collent le mieux à ton style de jeu.</p>
+  <ul class="alts gems">${gemsFor(id).map(gemCard).join('') || '<li class="muted">Aucune pierre ne ressort pour ce build.</li>'}</ul></div>`;
 state.charSlot = null;
 // Meilleure arme d'une liste de types pour le niveau : la plus haute disponible, fabricable ou unique d'abord, puis les effets recherchés
 function pickWeapons(types, lv, build) {
@@ -600,6 +629,7 @@ VIEWS.char = () => {
   ${next ? `<h2 style="margin-top:22px"><i class="gi gi-spyglass"></i> ${P.toUnlock ? `Mon prochain équipement — à débloquer (niveau ${next.set.lv})` : `Mon prochain équipement — dès le niveau ${next.lv}`}</h2>
   <p class="small muted" style="margin-top:-6px">${P.toUnlock ? 'Cette tenue est de ton niveau, mais sa recette n\'est pas encore chez ton artisan : voici comment la débloquer.' : 'Pour préparer la suite : tu peux déjà farmer les matériaux.'}</p>
   ${dollHtml(next, 'f', `${unlockBox}${P.toUnlock ? `<button class="btn sm pri" data-act="unlockSet" data-arg="${esc(next.set.id)}">✓ C'est débloqué</button>` : ''}${next.set && next.set.pieces.some(p => p[1]) ? `<button class="btn sm" data-act="gearList" data-arg="${esc(next.set.id)}">+ Matériaux à ma liste</button>` : ''}`)}` : ''}
+  ${gemsHtml(state.mybuild)}
   <p class="small muted">Armes et anneaux tombent souvent au hasard : la page te propose le meilleur type à viser, puis des alternatives. Noms officiels du jeu en français (le nom anglais est entre parenthèses).</p>`;
 };
 AFTER.char = () => { const s = $('#cBuild'); if (s) s.addEventListener('change', () => { state.mybuild = s.value || null; state.charSlot = null; render(); }); };
