@@ -186,12 +186,21 @@ window.Local = (() => {
         <label class="field">Clic droit sur la bulle en jeu : le Compagnon s'ouvre en plein écran sur<select id="sScreen"><option>Chargement…</option></select></label>
         <h3>Démarrage</h3>
         <label class="wz-opt"><input type="checkbox" id="sSound" ${p.settings.sound ? 'checked' : ''}><span><b>Musique de l'intro</b><small>Quelques secondes au démarrage.</small></span></label>
-        <h3>Copie de sécurité</h3>
-        <p class="small muted">Un fichier avec tous tes réglages et les données de tes personnages : pour changer de PC ou par précaution.</p>
-        <div class="row"><button class="btn sm" data-act="sExport"><i class="gi gi-scroll-unfurled"></i> Exporter</button><label class="btn sm ghost">Importer<input type="file" id="sImport" accept=".json,application/json" hidden></label></div>
+        <h3>Mes données</h3>
+        <p class="small muted">Garde ce fichier ailleurs que sur ton PC (clé USB, cloud) pour le retrouver après une réinstallation.</p>
+        <div class="row"><button class="btn sm" data-act="sExport"><i class="gi gi-scroll-unfurled"></i> Sauvegarder mes données</button><label class="btn sm ghost">Restaurer une sauvegarde<input type="file" id="sImport" accept=".json,application/json" hidden></label></div>
       </div>
     </div>
     <p class="small muted" style="margin-top:18px">Icônes : game-icons.net (CC BY 3.0) · Police des titres : Cinzel (OFL) · Données : wiki Enshrouded.</p>`;
+  }
+
+  // Petite fenêtre de confirmation (pas de confirm() natif)
+  function askRestore(text, name) {
+    const m = document.createElement('div'); m.id = 'restoreModal'; m.className = 'map-modal'; m.dataset.text = text;
+    m.innerHTML = `<div class="map-modal-in restore-in"><h3>Restaurer cette sauvegarde ?</h3>
+      <p class="small">Tes données actuelles (build, personnages, listes…) seront <b>remplacées</b> par celles du fichier <b>${esc(name)}</b>. Le Compagnon va se recharger.</p>
+      <div class="row"><button class="btn pri sm" data-act="sRestoreYes">Oui, restaurer</button><button class="btn sm ghost" data-act="sRestoreNo">Annuler</button></div></div>`;
+    document.body.appendChild(m);
   }
 
   // ---------- Écran du Compagnon en grand (liste fournie par l'appli Windows) ----------
@@ -214,10 +223,10 @@ window.Local = (() => {
       if (appHost) { appHost.postMessage('screens'); $('#sScreen').addEventListener('change', e => { appHost.postMessage('setScreen:' + e.target.value); toast('Écran enregistré'); }); } else { const s = $('#sScreen'); if (s) s.closest('label').hidden = true; }
       $('#sSound').addEventListener('change', e => { const p = Profil.get(); p.settings.sound = e.target.checked; Profil.set(p); try { localStorage.setItem('ens.introSon', String(e.target.checked)); } catch { /* ignoré */ } });
       $('#sImport').addEventListener('change', async e => {
-        const f = e.target.files[0]; if (!f) return;
-        if (!confirm('Remplacer tous tes réglages et les données de tes personnages par ceux de ce fichier ?')) return;
-        try { Profil.importAll(await f.text()); loadState(); renderSwitch(); render(); toast('Copie de sécurité importée'); }
-        catch (x) { toast('⚠️ ' + x.message); }
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        let text;
+        try { text = await f.text(); Profil.parseBackup(text); } catch (x) { toast('⚠️ Ce fichier n\'est pas une sauvegarde du Compagnon'); return; }
+        askRestore(text, f.name);
       });
     };
     ACTIONS.wzNext = () => { readWizard(); if (wiz.step === 1 && !wiz.name) { toast('Indique ton nom pour continuer'); return; } wiz.step = Math.min(3, wiz.step + 1); render(); };
@@ -236,8 +245,16 @@ window.Local = (() => {
     ACTIONS.sExport = () => {
       const blob = new Blob([Profil.exportAll()], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = `compagnon-enshrouded-${new Date().toISOString().slice(0, 10)}.json`; a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      a.download = `compagnon-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast('Sauvegarde téléchargée');
+    };
+    ACTIONS.sRestoreNo = () => { const m = $('#restoreModal'); if (m) m.remove(); };
+    ACTIONS.sRestoreYes = () => {
+      const m = $('#restoreModal'); if (!m) return;
+      try { Profil.importAll(m.dataset.text); } catch (x) { m.remove(); toast('⚠️ ' + x.message); return; }
+      location.reload();
     };
     document.addEventListener('click', e => { const m = $('#charSw .cs-menu'); if (m && !m.hidden && !e.target.closest('#charSw')) m.hidden = true; });
     // L'overlay modifie la liste de farm ou les mémos : on recharge

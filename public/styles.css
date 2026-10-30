@@ -543,3 +543,6 @@ body[data-view="carte"] main { max-width: none; padding: 14px 16px 14px; }
 .gem-detail img { filter: drop-shadow(0 0 18px var(--rc)); }
 .gem-detail .gem-rar { color: var(--rc); border-color: var(--rc); }
 .gem-spare .gem-tile { display: inline-flex; flex: none; }
+
+.restore-in { max-width: 420px; border-color: var(--flame); box-shadow: 0 0 24px rgba(143,208,245,.25); }
+.restore-in .row { margin-top: 12px; }

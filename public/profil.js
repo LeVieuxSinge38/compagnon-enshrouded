@@ -230,6 +230,15 @@
     },
 
     /**
+     * Détermine si une clé doit être exclue lors d'une sauvegarde.
+     * @param {string} key - Clé à vérifier
+     * @returns {boolean}
+     */
+    isBackupExcluded: function (key) {
+      return key === 'ens.newsCache' || key === 'ens.newsFr' || key === 'ens.dev.marks';
+    },
+
+    /**
      * Exporte toutes les données 'ens.' dans une chaîne JSON.
      * @returns {string}
      */
@@ -237,24 +246,26 @@
       var data = {};
       var keys = lsKeysByPrefix('ens.');
       for (var i = 0; i < keys.length; i++) {
-        data[keys[i]] = lsGet(keys[i]);
+        if (!this.isBackupExcluded(keys[i])) {
+          data[keys[i]] = lsGet(keys[i]);
+        }
       }
       var payload = {
         app: 'compagnon-enshrouded',
         version: 1,
-        at: Date.now(),
+        date: new Date().toISOString(),
         data: data
       };
       return JSON.stringify(payload);
     },
 
     /**
-     * Importe des données depuis une chaîne JSON.
-     * Vérifie l'application, supprime les clés 'ens.' existantes puis réécrit.
-     * @param {string} text - Chaîne JSON à importer
+     * Parse et valide le contenu d'une sauvegarde.
+     * @param {string} text - Chaîne JSON à valider
+     * @returns {Object}
      * @throws {Error} Si le format est invalide
      */
-    importAll: function (text) {
+    parseBackup: function (text) {
       var payload;
       try {
         payload = JSON.parse(text);
@@ -272,18 +283,39 @@
         throw new Error('Import invalide : le champ « data » est absent ou n\'est pas un objet.');
       }
 
-      // Suppression de toutes les clés 'ens.' existantes
+      return payload;
+    },
+
+    /**
+     * Importe des données depuis une chaîne JSON.
+     * Vérifie l'application, supprime les clés 'ens.' existantes puis réécrit.
+     * @param {string} text - Chaîne JSON à importer
+     * @returns {number} Nombre de clés écrites
+     * @throws {Error} Si le format est invalide
+     */
+    importAll: function (text) {
+      var payload = this.parseBackup(text);
+
+      // Suppression des anciennes clés 'ens.' non exclues
       var existing = lsKeysByPrefix('ens.');
       for (var i = 0; i < existing.length; i++) {
-        lsRemove(existing[i]);
+        if (!this.isBackupExcluded(existing[i])) {
+          lsRemove(existing[i]);
+        }
       }
 
       // Écriture des nouvelles données
+      var count = 0;
       for (var k in payload.data) {
         if (Object.prototype.hasOwnProperty.call(payload.data, k)) {
-          lsSet(k, payload.data[k]);
+          if (k.indexOf('ens.') === 0 && !this.isBackupExcluded(k) && typeof payload.data[k] === 'string') {
+            lsSet(k, payload.data[k]);
+            count++;
+          }
         }
       }
+
+      return count;
     }
   };
 })();
