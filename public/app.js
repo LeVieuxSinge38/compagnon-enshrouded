@@ -588,11 +588,13 @@ function applyGearPicks(slots, picks = state.gearpick || {}) {
   for (const k of Object.keys(picks)) {
     const s = slots[k]; if (!s || (!s.item && s.kind !== 'armor')) continue;
     const it = gearPickItem(k, s.kind, picks[k], state.mybuild);
-    if (!it || (s.item && it.en === s.item.en)) continue;
+    if (!it) continue;
+    if (s.item && it.en === s.item.en) { s.picked = true; continue; }
     s.alts = [...(s.item ? [s.item] : []), ...(s.alts || []).filter(a => a.en !== it.en)];
     s.item = it; s.picked = true;
   }
 }
+const slotKind = k => k === 'main' || k === 'alt' ? 'weapon' : k === 'off' ? 'shield' : /^ring/.test(k) ? 'ring' : ARMOR_KEYS[k] ? 'armor' : null;
 // Oublie les choix qui ne vont plus avec le build (type d'arme, bouclier/protection, emplacement absent)
 function pruneGearPicks() {
   const L = LOADOUT[state.mybuild] || LOADOUT.explorer || {};
@@ -600,7 +602,7 @@ function pruneGearPicks() {
   for (const name of ['gearpick']) {
     const keep = {};
     for (const [k, en] of Object.entries(state[name] || {})) {
-      const kind = k === 'main' || k === 'alt' ? 'weapon' : k === 'off' ? 'shield' : /^ring/.test(k) ? 'ring' : ARMOR_KEYS[k] ? 'armor' : null;
+      const kind = slotKind(k);
       if (!kind || (k === 'off' && !L.off)) continue;
       if (gearPickItem(k, kind, en, state.mybuild)) keep[k] = en;
     }
@@ -609,11 +611,16 @@ function pruneGearPicks() {
 }
 ACTIONS.gearPick = arg => { const [k, en] = String(arg).split('|'); state.gearpick = { ...state.gearpick, [k]: en }; render(); };
 ACTIONS.gearUnpick = k => { const g = { ...state.gearpick }; delete g[k]; state.gearpick = g; delete TILE[k]; render(); };
-// Ancienne version : « prochain équipement » séparé. Les pièces qu'on y avait marquées « je l'ai » deviennent des pièces équipées ; rien n'est perdu.
+// Ancienne version : « prochain équipement » séparé. Les pièces qu'on y avait marquées « je l'ai » deviennent des pièces équipées (rien n'est perdu),
+// SAUF celles en dessous du niveau du joueur : elles ne comptent pas comme un choix explicite, l'emplacement repart de la pièce de son niveau.
 function migrateGear() {
   const nx = state.gearnext || {}; if (!Object.keys(nx).length) return;
-  const pick = { ...state.gearpick };
-  for (const [k, en] of Object.entries(nx)) if (state.owned[en] && !pick[k]) pick[k] = en;
+  const pick = { ...state.gearpick }, lv = state.level || 1;
+  for (const [k, en] of Object.entries(nx)) {
+    if (!state.owned[en] || pick[k]) continue;
+    const kind = slotKind(k), it = kind && gearPickItem(k, kind, en, state.mybuild);
+    if (!it || itemLv(kind, it) >= lv) pick[k] = en;
+  }
   state.gearpick = pick; state.gearnext = {};
 }
 // Tout l'équipement conseillé (chaque emplacement : l'objet choisi + des alternatives)
@@ -636,11 +643,28 @@ function loadout(lv = state.level || 1, forceSet) {
   slots.ring1 = { label: 'Anneau', kind: 'ring', item: r1[0], alts: r1.slice(1, 5) };
   slots.ring2 = { label: 'Anneau', kind: 'ring', item: r2[0], alts: r2.slice(1, 5) };
   const mine = !forceSet && lv === (state.level || 1);
-  if (mine) applyGearPicks(slots);
+  if (mine) { applyLevelPieces(slots); applyGearPicks(slots); }
   return { set, slots, lv, mine };
 }
 // L'équipement porté : meilleure recommandation de son niveau, sauf pièces équipées (gearpick)
 function equipped() { migrateGear(); return loadout(state.level || 1); }
+// Chaque emplacement part de la pièce de son niveau : la plus forte dont le niveau est <= celui du joueur (sinon la plus basse). Les pièces équipées (gearpick) passent par-dessus.
+function levelPiece(kind, list, lv) {
+  let best = null;
+  for (const x of list) { const l = itemLv(kind, x); if (l <= lv && (!best || l > itemLv(kind, best))) best = x; }
+  return best || list[0] || null;
+}
+function applyLevelPieces(slots) {
+  const lv = state.level || 1;
+  for (const [k, s] of Object.entries(slots)) {
+    if (!s.item && s.kind !== 'armor') continue;
+    const it = levelPiece(s.kind, slotList(k, s), lv); if (!it) continue;
+    s.lvItem = it;
+    if (s.item && it.en === s.item.en) continue;
+    s.alts = [...(s.item ? [s.item] : []), ...(s.alts || []).filter(a => a.en !== it.en)];
+    s.item = it;
+  }
+}
 // Où obtenir un objet (data/provenance.js, wikily, jeu 1.0) : artisan, coffres, boss, coffre précis
 const provOf = en => (window.PROV || {})[en] || null;
 const craftAt = en => { const p = provOf(en); return p && p.c ? p.c : null; };
@@ -748,11 +772,13 @@ function betterThan(kind, list, eq) {
 }
 function tileState(key, s, lo) {
   const list = slotList(key, s, lo), eq = s.item, shown = list.find(x => x.en === TILE[key]) || eq || list[0] || null;
-  return { list, eq, shown, better: betterThan(s.kind, list, eq) };
+  const lvIt = s.lvItem || null, below = !!(s.picked && lvIt && eq && itemLv(s.kind, eq) < itemLv(s.kind, lvIt));
+  let better = betterThan(s.kind, list, eq); if (below && better && better.en === lvIt.en) better = null;
+  return { list, eq, shown, better, lvIt, below };
 }
 function tileHtml(key, s, lo) {
   if (!s) return '';
-  const { list, eq, shown, better } = tileState(key, s, lo), it = shown, k = 'a:' + key;
+  const { list, eq, shown, better, lvIt, below } = tileState(key, s, lo), it = shown, k = 'a:' + key;
   if (!it) return `<div class="slot tile empty"><span class="slot-t"><small>${esc(s.label)}</small><b>—</b><small>Rien pour cet emplacement</small></span></div>`;
   const isEq = !!eq && eq.en === it.en, own = isOwned(key, it.en), idx = list.findIndex(x => x.en === it.en);
   const sub = s.kind === 'armor' && it.stats ? `Armure physique ${it.stats[0]} · Armure magique ${it.stats[1]}` : s.kind === 'weapon' ? esc(WTYPE(it.type)) : s.kind === 'shield' ? `blocage ${it.block}` : (it.eff[0] || '');
@@ -763,8 +789,9 @@ function tileHtml(key, s, lo) {
     <div class="tile-nav"><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|-1" aria-label="Pièce précédente">◀</button><small>${esc(s.label)} · ${idx + 1}/${list.length}</small><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|1" aria-label="Pièce suivante">▶</button></div>
     <div class="tile-main"><span class="slot-ico">${ITEM_ICONS[it.en] ? zoomIcon(it.en, 44, it.fr) : SLOT_ICON[key]}</span>
       <span class="slot-t" data-act="charSlot" data-arg="${k}" role="button" tabindex="0"><b>${esc(it.fr)}</b><small>${lvl ? 'Niveau ' + lvl : 'Niveau ?'}${isEq ? ' · <span class="slot-mine">★ Équipée</span>' : ''}</small><small>${sub}</small><small>${escIco(srcOf(s.kind, it))}</small>${unlock}</span></div>
-    <div class="tile-btns"><button class="btn sm ${own ? 'pri' : ''}" data-act="tileOwn" data-arg="${esc(key)}|${esc(it.en)}">${own ? '✔ Je l\'ai' : '☐ Je l\'ai'}</button>${isEq ? '' : `<button class="btn sm pri" data-act="tileEquip" data-arg="${esc(key)}|${esc(it.en)}">Équiper</button>`}</div>
+    <div class="tile-btns"><button class="btn sm ${own ? 'pri' : ''}" data-act="tileOwn" data-arg="${esc(key)}|${esc(it.en)}">${own ? '✔ Je l\'ai' : '☐ Je l\'ai'}</button>${isEq ? '' : `<button class="btn sm pri" data-act="tileEquip" data-arg="${esc(key)}|${esc(it.en)}">Équiper</button>`}${lvIt && lvIt.en !== it.en ? `<button class="btn sm" data-act="tileLevel" data-arg="${esc(key)}" title="Revenir à la pièce de ton niveau">◎ Mon niveau</button>` : ''}</div>
     ${gem}
+    ${below ? `<small class="tile-better">↑ Ton niveau : <b>${esc(lvIt.fr)}</b> (niv. ${itemLv(s.kind, lvIt)}) — ${escIco(srcOf(s.kind, lvIt))}</small>` : ''}
     ${better ? `<small class="tile-better">↑ Mieux : <b>${esc(better.fr)}</b> (niv. ${itemLv(s.kind, better)}) — ${escIco(srcOf(s.kind, better))}</small>` : ''}</div>`;
 }
 ACTIONS.tileNav = arg => {
@@ -773,6 +800,7 @@ ACTIONS.tileNav = arg => {
   const i = list.findIndex(x => x.en === (shown && shown.en));
   TILE[key] = list[(i + Number(d) + list.length) % list.length].en; render();
 };
+ACTIONS.tileLevel = key => { const lo = equipped(), s = lo && lo.slots[key]; if (!s || !s.lvItem) return; TILE[key] = s.lvItem.en; render(); };
 ACTIONS.tileOwn = arg => {
   const [key, en] = String(arg).split('|'), go = { ...(state.gearowned || {}) }, cur = go[key] || [], o = { ...state.owned };
   if (isOwned(key, en)) { go[key] = cur.filter(x => x !== en); delete o[en]; } else { go[key] = [...cur, en]; o[en] = true; }

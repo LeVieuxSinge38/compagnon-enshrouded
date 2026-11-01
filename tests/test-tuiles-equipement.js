@@ -56,13 +56,42 @@ run(`state.gearpick = {}`); assert(tile('head').n >= 2);
 run(`ACTIONS.tileNav('head|1')`); const hs = tile('head').shown; run(`ACTIONS.tileEquip('head|${q(hs)}')`);
 assert.strictEqual(eq().head.en, hs); console.log('OK armure équipée', hs);
 
-// 6. migration
-run(`state.gearpick = {}; state.owned = {}`);
-const alt = eq().alt.en, other = J(`(() => { const lo = equipped(); return slotList('alt', lo.slots.alt, lo).map(x => x.en); })()`).find(x => x !== alt);
-run(`state.gearnext = { alt: '${q(other)}', main: 'inconnu' }; state.owned = { '${q(other)}': true }`);
-assert.strictEqual(eq().alt.en, other, 'gearnext possédé devient équipé'); assert.deepStrictEqual(J('state.gearnext'), {});
-run(`state.gearpick = { alt: '${q(alt)}' }; state.gearnext = { alt: '${q(other)}' }`);
-assert.strictEqual(eq().alt.en, alt, 'gearpick prioritaire'); console.log('OK migration');
+// 6. migration : pièce >= niveau du joueur => équipée ; pièce en dessous => redevient la proposition par niveau
+run(`state.gearpick = {}; state.owned = {}; state.level = 32`);
+const altL = J(`(() => { const lo = equipped(); return slotList('alt', lo.slots.alt, lo).map(x => [x.en, itemLv('weapon', x)]); })()`);
+const lvAlt = eq().alt.en, up = altL.find(x => x[1] >= 32 && x[0] !== lvAlt), low = altL.find(x => x[1] < 32);
+assert(up && low, 'armes de secours au-dessus et en dessous du niveau 32');
+run(`state.gearnext = { alt: '${q(up[0])}', main: 'inconnu' }; state.owned = { '${q(up[0])}': true }`);
+assert.strictEqual(eq().alt.en, up[0], 'gearnext possédé au niveau du joueur ou plus => équipé'); assert.deepStrictEqual(J('state.gearnext'), {});
+run(`state.gearpick = {}; state.gearnext = { alt: '${q(low[0])}' }; state.owned = { '${q(low[0])}': true }`);
+assert(!J('state.gearpick').alt, 'gearnext sous le niveau : pas un choix explicite'); assert.strictEqual(eq().alt.en, lvAlt);
+run(`state.gearpick = { alt: '${q(lvAlt)}' }; state.gearnext = { alt: '${q(up[0])}' }; state.owned = { '${q(up[0])}': true }`);
+assert.strictEqual(eq().alt.en, lvAlt, 'gearpick prioritaire'); console.log('OK migration');
+
+// 6b. départ au niveau du joueur
+run(`state.gearpick = {}; state.gearnext = {}; state.owned = {}; state.level = 32`);
+const lvOf = k => J(`(() => { const lo = equipped(), s = lo.slots['${k}']; return { lv: itemLv(s.kind, s.item), all: slotList('${k}', s, lo).map(x => itemLv(s.kind, x)), picked: !!s.picked }; })()`);
+for (const k of ['main', 'alt', 'ring1', 'head', 'chest', 'feet']) {
+  const r = lvOf(k), ok = r.all.filter(l => l <= 32);
+  assert.strictEqual(r.lv, ok.length ? Math.max(...ok) : Math.min(...r.all), k + ' : pièce de niveau <= 32 (ou la plus basse)'); assert(!r.picked);
+  const t = tile(k); assert.strictEqual(t.shown, t.eq, k + ' affichée = proposée');
+}
+assert(lvOf('main').all.some(l => l > 32), 'il existe des armes au-dessus du niveau 32');
+const e32 = eq(); run(`ACTIONS.tileNav('main|1'); ACTIONS.tileNav('main|1')`);
+assert.deepStrictEqual(eq().main, e32.main, 'défiler ne change pas l\'équipée');
+assert(/◎ Mon niveau/.test(mainHtml()), 'bouton Mon niveau quand on a défilé');
+run(`ACTIONS.tileLevel('main')`); assert.strictEqual(tile('main').shown, e32.main.en, 'Mon niveau recentre'); assert(!/◎ Mon niveau/.test(mainHtml()));
+// équiper fixe, ligne « Ton niveau » si plus faible
+const lowMain = J(`(() => { const lo = equipped(); return slotList('main', lo.slots.main, lo)[0].en; })()`);
+run(`ACTIONS.tileEquip('main|${q(lowMain)}')`);
+assert.strictEqual(eq().main.en, lowMain); assert(/↑ Ton niveau/.test(mainHtml()), 'Ton niveau si l\'équipée est plus faible');
+run(`state.level = 36`); assert.strictEqual(eq().main.en, lowMain, 'choix explicite conservé au passage 32 → 36');
+// sans choix : la tuile suit le niveau
+run(`state.gearpick = {}; state.level = 32`); const before = lvOf('main').lv; run(`state.level = 50`);
+const after = lvOf('main').lv; assert(after >= before); run(`state.level = 32`);
+const w = J(`(() => { state.level = 32; const a = equipped().slots.main.item.en; state.level = 40; const b = equipped().slots.main.item.en; state.level = 32; return [a, b]; })()`);
+assert.notStrictEqual(w[0], w[1], 'niveau 32 → 40 sans choix : la tuile suit');
+console.log('OK départ au niveau, Mon niveau, suivi du niveau');
 
 // 7. changement de build, vue, clés de synchro
 run(`state.gearpick = { main: '${q(higher)}' }; state.mybuild = 'wizard'; pruneGearPicks();`);
