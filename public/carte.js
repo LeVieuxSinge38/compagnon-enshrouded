@@ -207,7 +207,7 @@ window.Carte = (() => {
       q.addEventListener('keydown', e => { if (e.key === 'Enter') { const r = o.side.querySelector('#cRes')._r; if (r && r[0]) pick(r[0]); } });
       apply();
       setTimeout(() => M.invalidateSize(), 50);
-      if (o.focus && o.focus.loot) focusLoot(o.focus.loot); else if (o.focus) focusSlug(o.focus);
+      if (o.focus && o.focus.loot) focusLoot(o.focus.loot); else if (o.focus && o.focus.forge !== undefined) focusPoint('gem-forges', o.focus.forge); else if (o.focus) focusSlug(o.focus);
     }).catch(() => { o.map.innerHTML = '<div class="c-loading">Impossible de charger la carte. Recharge la page (F5).</div>'; });
   }
   // Où tombe un objet d'équipement : seulement les coffres de la bonne fourchette de niveaux et les boss qui le lâchent,
@@ -249,6 +249,13 @@ window.Carte = (() => {
     if (pts.length === 1) { M.flyTo(pts[0], 5); setTimeout(() => loot.getLayers()[0].fire('click'), 800); }
     else if (pts.length) M.flyToBounds(L.latLngBounds(pts).pad(0.08), { maxZoom: 5, duration: 0.6 });
   }
+  // Centre la carte sur un point précis d'une catégorie (ex. une Forge de pierres précieuses) et ouvre sa fiche
+  function focusPoint(catId, i) {
+    const c = cat(catId), p = c && c.pts[i];
+    if (!p || !M) return;
+    on.add(c.id); apply(); M.flyTo([p[1], p[0]], Math.max(M.getZoom(), 5));
+    setTimeout(() => { const m = [...layer(c.id).getLayers()].find(m => m._c.i === i); if (m) m.fire('click'); }, 800);
+  }
   // Ouvre la carte sur une ressource (identifiant « copper-ore »)
   function focusSlug(slug) {
     const r = window.CARTE_RES && CARTE_RES[slug];
@@ -270,5 +277,5 @@ window.Carte = (() => {
     syncSide();
   }
   const unmount = () => { if (M) { M.remove(); M = null; } };
-  return { mount, unmount, setDone, focusSlug, active: () => !!M };
+  return { mount, unmount, setDone, focusSlug, focusPoint, active: () => !!M };
 })();

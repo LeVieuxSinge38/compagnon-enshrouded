@@ -85,6 +85,7 @@ const state = {
   flame: store.get('flame', 1),
   mybuild: store.get('mybuild', null),
   owned: store.get('owned', {}),
+  gemset: store.get('gemset', {}), // emplacement -> « id pierre|nom EN de l'arme » sertie (décochée si l'arme équipée change)
   gearowned: store.get('gearowned', {}), // emplacement -> [noms EN des pièces cochées « Je l'ai »]
   gearnext: store.get('gearnext', {}), // idem pour le prochain équipement (choix séparé)
   gearpick: store.get('gearpick', {}), // emplacement -> nom EN de l'objet choisi parmi les « autres choix »
@@ -96,8 +97,8 @@ const state = {
   sel: { mat: null, prod: null }, craftQty: 1, craftStop: {}
 };
 // ---------- Sauvegarde : navigateur (mode local) ou serveur (mode comptes) ----------
-const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone', 'gearpick', 'gearnext', 'gearowned'];
-const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {}, gearpick: {}, gearnext: {}, gearowned: {} };
+const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone', 'gearpick', 'gearnext', 'gearowned', 'gemset'];
+const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {}, gearpick: {}, gearnext: {}, gearowned: {}, gemset: {} };
 const srv = { on: false, user: null, last: '', timer: null, pending: null, inflight: false };
 // « il y a 3 min »
 const sinceFr = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'à l\'instant' : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `le ${new Date(t).toLocaleDateString('fr-FR')}`; };
@@ -483,6 +484,48 @@ const gemShort = g => g.fr.replace(/^Pierre précieuse (d'|de la |de l'|du |des 
 const gemTile = (g, wen) => `<span class="gem-tile" role="button" tabindex="0" data-act="gemOpen" data-arg="${esc(g.key)}|${esc(wen)}" title="${esc(g.fr)} (${esc(g.rar)}) — clic pour les détails">${zoomless(g.en)}<span class="gem-tile-n">${esc(gemShort(g))}</span></span>`;
 const zoomless = en => ITEM_ICONS[en] ? `<img class="gem-tile-img" src="img/items/${esc(ITEM_ICONS[en])}" alt="" loading="lazy">` : '<i class="gi gi-ring"></i>';
 const RAR_SLUG = { 'Ordinaire': 'ordinaire', 'Peu courant': 'peu-courant', 'Rare': 'rare', 'Épique': 'epique', 'Légendaire': 'legendaire' };
+// ---------- Sertissage : forge, essence, case « Sertie » (données : data/sertissage.js) ----------
+const SERT = () => window.SERTISSAGE || { forges: [], tiers: [], gems: {} };
+// Palier de forge pour une arme de ce niveau : la plus basse dont le niveau max. de pierre couvre le niveau de l'arme
+const sertiTier = lv => { const t = SERT().tiers; return t.find(x => x.max >= (lv || 0)) || t[t.length - 1] || null; };
+const sertiForges = lv => { const t = sertiTier(lv); if (!t) return []; const all = SERT().forges.filter(f => f.tier === t.tier); return all.filter(f => f.max >= lv).length ? all.filter(f => f.max >= lv) : all; };
+const gemSetVal = (key, gk, wen) => `${gk}|${wen}`;
+const isGemSet = (key, gk, wen) => (state.gemset || {})[key] === gemSetVal(key, gk, wen);
+ACTIONS.gemSet = arg => {
+  const [key, gk, wen] = String(arg).split('|'), gs = { ...(state.gemset || {}) };
+  if (isGemSet(key, gk, wen)) delete gs[key]; else gs[key] = gemSetVal(key, gk, wen);
+  state.gemset = gs; render();
+};
+ACTIONS.forgeMap = i => {
+  document.querySelectorAll('.gem-box').forEach(b => b._close());
+  state.carteFocus = { forge: Number(i) }; go('carte');
+};
+// Ligne courte sous la tuile : quelle essence, et laquelle des forges
+function sertiShort(w) {
+  const t = w && w.lv ? sertiTier(w.lv) : null;
+  return t ? `<small class="gem-forge muted"><i class="gi gi-anvil"></i> Forge de pierres précieuses (${esc(t.regions.join(', '))}) · ${esc(t.fr)} · quantité à vérifier en jeu</small>` : '';
+}
+// Bloc « Pour la sertir » de la fiche d'une pierre : où (forges + carte) et quoi (essence), selon le niveau de l'arme
+function sertiBlock(w) {
+  const lv = w && w.lv, t = lv ? sertiTier(lv) : null, fg = t ? sertiForges(lv) : [];
+  if (!t) return `<li class="zs-h">Pour la sertir</li><li>Il faut une Forge de pierres précieuses et de l'Essence archaïque (I à VII selon la forge). Choisis une arme pour voir laquelle.</li>`;
+  return `<li class="zs-h">Pour la sertir — où</li>
+    <li>Forge de pierres précieuses (arme niveau ${lv}) — niveau max. de pierre ${t.min}–${t.max} :</li>
+    ${fg.map(f => `<li class="gem-forge-li">${esc(f.region)}, niveau ${f.lvl} (pierre jusqu'au niv. ${f.max}) <button class="btn sm" data-act="forgeMap" data-arg="${f.i}">Voir sur la carte</button></li>`).join('')}
+    <li class="zs-h">Pour la sertir — quoi</li>
+    <li><b>${esc(t.fr)}</b> (celle de ces forges) · quantité : à vérifier en jeu</li>
+    <li class="muted">Autres ressources éventuelles : à vérifier en jeu. Une forge n'améliore les pierres que jusqu'à son niveau max. de pierre.</li>`;
+}
+// Où obtenir la pierre elle-même : pêche, ennemis, butin spécial
+function gemWhere(g) {
+  const d = (SERT().gems || {})[g.key];
+  if (!d) return [g.lead || 'Origine inconnue pour le moment.'];
+  const l = [];
+  if (d.fish) l.push('À la pêche');
+  if (d.enemies) l.push('Butin d\'ennemis : ' + d.enemies);
+  (d.other || []).forEach(x => l.push(x));
+  return l.length ? l : [g.lead || 'Origine inconnue pour le moment.'];
+}
 ACTIONS.gemOpen = (arg, el, e) => {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const [key, wen] = String(arg).split('|');
@@ -497,7 +540,8 @@ ACTIONS.gemOpen = (arg, el, e) => {
   box.innerHTML = `<div class="zoom-in gem-detail r-${RAR_SLUG[g.rar] || 'ordinaire'}">
     ${ITEM_ICONS[g.en] ? `<img src="img/items/${esc(ITEM_ICONS[g.en])}" alt="">` : ''}<b>${esc(g.fr)}</b><span class="chip gem-rar">${esc(g.rar)}</span>
     <ul class="zoom-stats"><li>${esc(gemEffect(g))}</li>${(g.fx || []).map(f => `<li>${esc(f)}</li>`).join('')}
-      <li class="zs-h">Où la trouver</li><li>${esc(g.lead || 'Origine inconnue pour le moment.')}</li>
+      <li class="zs-h">Où la trouver</li>${gemWhere(g).map(x => `<li>${esc(x)}</li>`).join('')}
+      ${sertiBlock(w)}
       <li class="zs-h">Convient aux armes</li><li>${fit ? esc(types.join(', ') || '—') : 'Toutes les armes'}</li>
       ${spare ? `<li class="zs-h">Pierre de rechange</li><li><span class="gem-spare">${gemTile(spare, wen)}</span> <span class="muted">${esc(gemEffect(spare))}</span></li>` : ''}</ul>
     <button class="btn sm" data-close>Fermer</button></div>`;
@@ -713,7 +757,7 @@ function tileHtml(key, s, lo) {
   const isEq = !!eq && eq.en === it.en, own = isOwned(key, it.en), idx = list.findIndex(x => x.en === it.en);
   const sub = s.kind === 'armor' && it.stats ? `Armure physique ${it.stats[0]} · Armure magique ${it.stats[1]}` : s.kind === 'weapon' ? esc(WTYPE(it.type)) : s.kind === 'shield' ? `blocage ${it.block}` : (it.eff[0] || '');
   const unlock = s.kind === 'armor' && it.set.unlock && !it.set.pieces.some(([p]) => state.owned[p]) && isLocked(it.set) ? `<small class="tile-unlock"><i class="gi gi-padlock-open"></i> ${esc(it.set.unlock)}</small>` : '';
-  const gem = s.kind === 'weapon' && isEq ? ((g) => g ? gemTile(g, it.en) : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : '';
+  const gem = s.kind === 'weapon' && isEq ? ((g) => g ? gemTile(g, it.en) + `<span class="gem-set-row"><button class="btn sm ${isGemSet(key, g.key, it.en) ? 'pri' : ''}" data-act="gemSet" data-arg="${esc(key)}|${esc(g.key)}|${esc(it.en)}">${isGemSet(key, g.key, it.en) ? '✔ Sertie' : '☐ Sertie'}</button>${sertiShort(it)}</span>` : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : '';
   const lvl = itemLv(s.kind, it);
   return `<div class="slot tile ${state.charSlot === k ? 'on' : ''} ${isEq ? 'equipped' : ''} ${own ? 'owned' : ''}">
     <div class="tile-nav"><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|-1" aria-label="Pièce précédente">◀</button><small>${esc(s.label)} · ${idx + 1}/${list.length}</small><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|1" aria-label="Pièce suivante">▶</button></div>
@@ -734,7 +778,7 @@ ACTIONS.tileOwn = arg => {
   if (isOwned(key, en)) { go[key] = cur.filter(x => x !== en); delete o[en]; } else { go[key] = [...cur, en]; o[en] = true; }
   state.gearowned = go; state.owned = o; render();
 };
-ACTIONS.tileEquip = arg => { const [key, en] = String(arg).split('|'); state.gearpick = { ...state.gearpick, [key]: en }; delete TILE[key]; state.charSlot = null; render(); };
+ACTIONS.tileEquip = arg => { const [key, en] = String(arg).split('|'); state.gearpick = { ...state.gearpick, [key]: en }; state.gemset = Object.fromEntries(Object.entries(state.gemset || {}).filter(([k]) => k !== key)); delete TILE[key]; state.charSlot = null; render(); };
 // Un seul équipement : ce qu'on porte (par défaut la meilleure recommandation de son niveau, sinon la pièce équipée)
 function dollHtml(lo, center) {
   const S = lo.slots, armor = ['head', 'chest', 'hands', 'legs', 'feet'].map(k => S[k] && S[k].item && S[k].item.stats).filter(Boolean);
