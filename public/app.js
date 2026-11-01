@@ -625,7 +625,7 @@ function migrateGear() {
 }
 // Tout l'équipement conseillé (chaque emplacement : l'objet choisi + des alternatives)
 // Équipement complet pour un niveau donné (ou avec un ensemble imposé) : chaque emplacement = l'objet choisi + des alternatives
-function loadout(lv = state.level || 1, forceSet) {
+function loadout(lv = state.level || 1, forceSet, raw) {
   const id = state.mybuild;
   if (!id) return null;
   const L = LOADOUT[id] || LOADOUT.explorer, set = forceSet || gearAdvice(lv).now, slots = {};
@@ -642,14 +642,35 @@ function loadout(lv = state.level || 1, forceSet) {
   const [k1, k2] = RING_PREF[id] || ['health', 'stamina'], r1 = pickRings(k1, lv), r2 = pickRings(k2, lv); // deux fois le même anneau, c'est permis
   slots.ring1 = { label: 'Anneau', kind: 'ring', item: r1[0], alts: r1.slice(1, 5) };
   slots.ring2 = { label: 'Anneau', kind: 'ring', item: r2[0], alts: r2.slice(1, 5) };
-  const mine = !forceSet && lv === (state.level || 1);
+  const mine = !forceSet && !raw && lv === (state.level || 1);
   if (mine) { applyLevelPieces(slots); applyGearPicks(slots); }
   return { set, slots, lv, mine };
 }
 // L'équipement porté : meilleure recommandation de son niveau, sauf pièces équipées (gearpick)
 function equipped() { migrateGear(); return loadout(state.level || 1); }
-// Chaque emplacement part de la pièce de son niveau : la plus forte dont le niveau est <= celui du joueur (sinon la plus basse). Les pièces équipées (gearpick) passent par-dessus.
-function levelPiece(kind, list, lv) {
+// Pièces CONSEILLÉES par le build : pour chaque emplacement, la recommandation de chaque niveau (1 à 50), regroupée en paliers [{lv, it}] (lv = niveau où elle devient la conseillée)
+let RECO_CACHE = { sig: '', steps: {} };
+function recoSteps(key) {
+  const sig = JSON.stringify([state.mybuild, state.locked, state.gear && state.gear.style]);
+  if (RECO_CACHE.sig !== sig) {
+    const steps = {};
+    for (let lv = 1; lv <= 50; lv++) {
+      const lo = loadout(lv, null, true); if (!lo) break;
+      for (const [k, s] of Object.entries(lo.slots)) {
+        if (!s.item) continue;
+        const a = steps[k] || (steps[k] = []);
+        if (!a.some(x => x.it.en === s.item.en)) a.push({ lv, it: s.item });
+      }
+    }
+    RECO_CACHE = { sig, steps };
+  }
+  return RECO_CACHE.steps[key] || [];
+}
+const recoOf = (key, it) => it ? recoSteps(key).find(x => x.it.en === it.en) || null : null;
+// Chaque emplacement part de la pièce CONSEILLÉE du palier le plus haut <= niveau du joueur (sinon la conseillée la plus basse). Les pièces équipées (gearpick) passent par-dessus.
+function levelPiece(kind, list, lv, key) {
+  const st = recoSteps(key);
+  if (st.length) { const ok = st.filter(x => x.lv <= lv), r = ok.length ? ok[ok.length - 1] : st[0]; return list.find(x => x.en === r.it.en) || r.it; }
   let best = null;
   for (const x of list) { const l = itemLv(kind, x); if (l <= lv && (!best || l > itemLv(kind, best))) best = x; }
   return best || list[0] || null;
@@ -658,7 +679,7 @@ function applyLevelPieces(slots) {
   const lv = state.level || 1;
   for (const [k, s] of Object.entries(slots)) {
     if (!s.item && s.kind !== 'armor') continue;
-    const it = levelPiece(s.kind, slotList(k, s), lv); if (!it) continue;
+    const it = levelPiece(s.kind, slotList(k, s), lv, k); if (!it) continue;
     s.lvItem = it;
     if (s.item && it.en === s.item.en) continue;
     s.alts = [...(s.item ? [s.item] : []), ...(s.alts || []).filter(a => a.en !== it.en)];
@@ -752,7 +773,7 @@ function slotList(key, s, lo) {
     const [k1, k2] = RING_PREF[id] || ['health', 'stamina'], kind = key === 'ring1' ? k1 : k2;
     list = RINGS.filter(r => r.lv && (r.kind === kind || (r.kind === 'special' && r.eff.some(e => kind === 'health' ? /vie/.test(e) : kind === 'mana' ? /mana/.test(e) : /endurance/.test(e)))));
   }
-  for (const it of [s.item, ...(s.alts || [])]) if (it && !list.some(x => x.en === it.en)) list.push(it);
+  for (const it of [s.item, ...(s.alts || []), ...recoSteps(key).map(x => x.it)]) if (it && !list.some(x => x.en === it.en)) list.push(it);
   return list.map((it, i) => [it, i]).sort((a, b) => (itemLv(s.kind, a[0]) - itemLv(s.kind, b[0])) || (a[1] - b[1])).map(x => x[0]);
 }
 const isOwned = (key, en) => !!(state.owned[en] || ((state.gearowned || {})[key] || []).includes(en));
@@ -773,7 +794,7 @@ function betterThan(kind, list, eq) {
 function tileState(key, s, lo) {
   const list = slotList(key, s, lo), eq = s.item, shown = list.find(x => x.en === TILE[key]) || eq || list[0] || null;
   const lvIt = s.lvItem || null, below = !!(s.picked && lvIt && eq && itemLv(s.kind, eq) < itemLv(s.kind, lvIt));
-  let better = betterThan(s.kind, list, eq); if (below && better && better.en === lvIt.en) better = null;
+  let better = (eq && list.find(x => recoOf(key, x) && itemLv(s.kind, x) > itemLv(s.kind, eq))) || betterThan(s.kind, list, eq); if (below && better && better.en === lvIt.en) better = null;
   return { list, eq, shown, better, lvIt, below };
 }
 function tileHtml(key, s, lo) {
@@ -784,11 +805,12 @@ function tileHtml(key, s, lo) {
   const sub = s.kind === 'armor' && it.stats ? `Armure physique ${it.stats[0]} · Armure magique ${it.stats[1]}` : s.kind === 'weapon' ? esc(WTYPE(it.type)) : s.kind === 'shield' ? `blocage ${it.block}` : (it.eff[0] || '');
   const unlock = s.kind === 'armor' && it.set.unlock && !it.set.pieces.some(([p]) => state.owned[p]) && isLocked(it.set) ? `<small class="tile-unlock"><i class="gi gi-padlock-open"></i> ${esc(it.set.unlock)}</small>` : '';
   const gem = s.kind === 'weapon' && isEq ? ((g) => g ? gemTile(g, it.en) + `<span class="gem-set-row"><button class="btn sm ${isGemSet(key, g.key, it.en) ? 'pri' : ''}" data-act="gemSet" data-arg="${esc(key)}|${esc(g.key)}|${esc(it.en)}">${isGemSet(key, g.key, it.en) ? '✔ Sertie' : '☐ Sertie'}</button>${sertiShort(it)}</span>` : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : '';
-  const lvl = itemLv(s.kind, it);
+  const lvl = itemLv(s.kind, it), rc = recoOf(key, it);
+  const reco = rc ? `<small class="tile-reco">★ Conseillée pour ton build — niv. ${rc.lv}</small>` : '<small class="tile-alt">Alternative</small>';
   return `<div class="slot tile ${state.charSlot === k ? 'on' : ''} ${isEq ? 'equipped' : ''} ${own ? 'owned' : ''}">
     <div class="tile-nav"><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|-1" aria-label="Pièce précédente">◀</button><small>${esc(s.label)} · ${idx + 1}/${list.length}</small><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|1" aria-label="Pièce suivante">▶</button></div>
     <div class="tile-main"><span class="slot-ico">${ITEM_ICONS[it.en] ? zoomIcon(it.en, 44, it.fr) : SLOT_ICON[key]}</span>
-      <span class="slot-t" data-act="charSlot" data-arg="${k}" role="button" tabindex="0"><b>${esc(it.fr)}</b><small>${lvl ? 'Niveau ' + lvl : 'Niveau ?'}${isEq ? ' · <span class="slot-mine">★ Équipée</span>' : ''}</small><small>${sub}</small><small>${escIco(srcOf(s.kind, it))}</small>${unlock}</span></div>
+      <span class="slot-t" data-act="charSlot" data-arg="${k}" role="button" tabindex="0"><b>${esc(it.fr)}</b>${reco}<small>${lvl ? 'Niveau ' + lvl : 'Niveau ?'}${isEq ? ' · <span class="slot-mine">★ Équipée</span>' : ''}</small><small>${sub}</small><small>${escIco(srcOf(s.kind, it))}</small>${unlock}</span></div>
     <div class="tile-btns"><button class="btn sm ${own ? 'pri' : ''}" data-act="tileOwn" data-arg="${esc(key)}|${esc(it.en)}">${own ? '✔ Je l\'ai' : '☐ Je l\'ai'}</button>${isEq ? '' : `<button class="btn sm pri" data-act="tileEquip" data-arg="${esc(key)}|${esc(it.en)}">Équiper</button>`}${lvIt && lvIt.en !== it.en ? `<button class="btn sm" data-act="tileLevel" data-arg="${esc(key)}" title="Revenir à la pièce de ton niveau">◎ Mon niveau</button>` : ''}</div>
     ${gem}
     ${below ? `<small class="tile-better">↑ Ton niveau : <b>${esc(lvIt.fr)}</b> (niv. ${itemLv(s.kind, lvIt)}) — ${escIco(srcOf(s.kind, lvIt))}</small>` : ''}
@@ -801,6 +823,7 @@ ACTIONS.tileNav = arg => {
   TILE[key] = list[(i + Number(d) + list.length) % list.length].en; render();
 };
 ACTIONS.tileLevel = key => { const lo = equipped(), s = lo && lo.slots[key]; if (!s || !s.lvItem) return; TILE[key] = s.lvItem.en; render(); };
+ACTIONS.tileShow = arg => { const [key, en] = String(arg).split('|'); TILE[key] = en; render(); };
 ACTIONS.tileOwn = arg => {
   const [key, en] = String(arg).split('|'), go = { ...(state.gearowned || {}) }, cur = go[key] || [], o = { ...state.owned };
   if (isOwned(key, en)) { go[key] = cur.filter(x => x !== en); delete o[en]; } else { go[key] = [...cur, en]; o[en] = true; }
@@ -824,6 +847,12 @@ function dollHtml(lo, center) {
   <div class="doll-detail" id="detail-a">${(([p, k]) => p === 'a' && lo.slots[k] ? slotDetail(k, lo.slots[k], lo) : '')(String(state.charSlot || '').split(':'))}</div>`;
 }
 
+// « Progression conseillée » : la pièce conseillée du build à chaque palier, la ligne du niveau actuel en évidence
+function progHtml(key, s0) {
+  const st = recoSteps(key); if (st.length < 1) return '';
+  const cur = s0.lvItem && s0.lvItem.en, lv = state.level || 1;
+  return `<div class="prog"><b class="small">Progression conseillée</b><ul class="prog-list">${st.map(x => `<li><button class="prog-row ${x.it.en === cur ? 'on' : ''}" data-act="tileShow" data-arg="${esc(key)}|${esc(x.it.en)}">niv. ${x.lv} → <b>${esc(x.it.fr)}</b>${x.it.en === cur ? ` <span class="prog-me">◎ ton niveau (${lv})</span>` : ''}</button></li>`).join('')}</ul></div>`;
+}
 function slotDetail(key, s0, lo) {
   const { shown, eq } = tileState(key, s0, lo), s = { ...s0, item: shown, alts: [] }, it = shown;
   if (!it) return `<div class="card muted">Rien de conseillé pour cet emplacement.</div>`;
@@ -856,6 +885,7 @@ function slotDetail(key, s0, lo) {
   return `<div class="card stack"><div class="row" style="justify-content:space-between"><div class="row" style="flex-wrap:nowrap;gap:10px">${zoomIcon(it.en, 72, it.fr)}<div><b style="font-size:16px">${esc(it.fr)}</b>${it.en && it.en !== it.fr ? ` <span class="muted small">(${esc(it.en)})</span>` : ''} <span class="chip">${esc(s.label)}</span></div></div>
     <div class="row"><button class="btn sm ${own ? 'pri' : ''}" data-act="tileOwn" data-arg="${esc(key)}|${esc(it.en)}">${own ? '✔ Je l\'ai' : '☐ Je l\'ai'}</button>${eq && eq.en === it.en ? '' : `<button class="btn sm pri" data-act="tileEquip" data-arg="${esc(key)}|${esc(it.en)}">Équiper</button>`}</div></div>
     ${eq && eq.en === it.en && s0.picked ? `<div class="row small"><b class="slot-mine">★ Équipée</b> <button class="btn sm" data-act="gearUnpick" data-arg="${esc(key)}">Revenir à la recommandation</button></div>` : ''}
+    ${progHtml(key, s0)}
     ${body}</div>`;
 }
 VIEWS.char = () => {

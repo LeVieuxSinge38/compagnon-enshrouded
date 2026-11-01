@@ -71,9 +71,11 @@ assert.strictEqual(eq().alt.en, lvAlt, 'gearpick prioritaire'); console.log('OK 
 // 6b. départ au niveau du joueur
 run(`state.gearpick = {}; state.gearnext = {}; state.owned = {}; state.level = 32`);
 const lvOf = k => J(`(() => { const lo = equipped(), s = lo.slots['${k}']; return { lv: itemLv(s.kind, s.item), all: slotList('${k}', s, lo).map(x => itemLv(s.kind, x)), picked: !!s.picked }; })()`);
+const stepsOf = k => J(`recoSteps('${k}').map(x => [x.lv, x.it.en])`);
 for (const k of ['main', 'alt', 'ring1', 'head', 'chest', 'feet']) {
-  const r = lvOf(k), ok = r.all.filter(l => l <= 32);
-  assert.strictEqual(r.lv, ok.length ? Math.max(...ok) : Math.min(...r.all), k + ' : pièce de niveau <= 32 (ou la plus basse)'); assert(!r.picked);
+  const st = stepsOf(k), ok = st.filter(x => x[0] <= 32), want = (ok.length ? ok[ok.length - 1] : st[0])[1];
+  assert(st.length >= 2, k + ' : plusieurs paliers conseillés');
+  assert.strictEqual(J(`equipped().slots['${k}'].item.en`), want, k + ' : conseillée du palier <= 32 (sinon la plus basse)'); assert(!lvOf(k).picked);
   const t = tile(k); assert.strictEqual(t.shown, t.eq, k + ' affichée = proposée');
 }
 assert(lvOf('main').all.some(l => l > 32), 'il existe des armes au-dessus du niveau 32');
@@ -92,6 +94,28 @@ const after = lvOf('main').lv; assert(after >= before); run(`state.level = 32`);
 const w = J(`(() => { state.level = 32; const a = equipped().slots.main.item.en; state.level = 40; const b = equipped().slots.main.item.en; state.level = 32; return [a, b]; })()`);
 assert.notStrictEqual(w[0], w[1], 'niveau 32 → 40 sans choix : la tuile suit');
 console.log('OK départ au niveau, Mon niveau, suivi du niveau');
+
+// 6c. étiquettes conseillée / alternative, progression conseillée
+run(`state.gearpick = {}; state.level = 32; TILE.main = undefined`);
+const mSteps = stepsOf('main'), mLvl = mSteps.filter(x => x[0] <= 32).pop();
+assert(new RegExp('★ Conseillée pour ton build — niv\\. ' + mLvl[0]).test(mainHtml()), 'étiquette conseillée avec son palier');
+assert(!/Alternative/.test(mainHtml()));
+const altEn = J(`slotList('main', equipped().slots.main).map(x => x.en)`).find(e => !mSteps.some(x => x[1] === e));
+assert(altEn, 'il existe une alternative non conseillée'); run(`TILE.main = '${q(altEn)}'`);
+assert(/Alternative/.test(mainHtml()) && !/★ Conseillée/.test(mainHtml()), 'étiquette Alternative'); run(`delete TILE.main`);
+const nextReco = mSteps.find(x => x[0] > 32);
+run(`ACTIONS.tileEquip('main|${q(J(`slotList('main', equipped().slots.main)[0].en`))}')`);
+const bt = J(`(() => { const lo = equipped(); return tileState('main', lo.slots.main, lo).better.en; })()`);
+const lowLv = J(`itemLv('weapon', equipped().slots.main.item)`);
+assert(mSteps.some(x => x[1] === bt), 'Mieux privilégie une pièce conseillée'); run(`state.gearpick = {}`);
+const det = run(`(() => { const lo = equipped(); return slotDetail('main', lo.slots.main, lo); })()`);
+assert(/Progression conseillée/.test(det));
+for (const [l, en] of mSteps) assert(det.includes('niv. ' + l + ' →') && det.includes('tileShow" data-arg="main|' + en), 'ligne niv. ' + l);
+assert.strictEqual((det.match(/prog-row on/g) || []).length, 1, 'une seule ligne du niveau actuel');
+assert(new RegExp('prog-row on"[^>]*data-arg="main\\|' + mLvl[1]).test(det), 'ligne du niveau 32 marquée');
+run(`ACTIONS.tileShow('main|${q(nextReco[1])}')`); assert.strictEqual(tile('main').shown, nextReco[1], 'clic sur une ligne affiche la pièce');
+run(`delete TILE.main`);
+console.log('OK conseillée / alternative / progression');
 
 // 7. changement de build, vue, clés de synchro
 run(`state.gearpick = { main: '${q(higher)}' }; state.mybuild = 'wizard'; pruneGearPicks();`);

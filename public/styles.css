@@ -560,6 +560,14 @@ body[data-view="carte"] main { max-width: none; padding: 14px 16px 14px; }
 .slot-mine { color: var(--flame2); font-weight: 600; }
 .tile-btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .tile-better { color: var(--flame2); background: rgba(143,208,245,.08); border-radius: 8px; padding: 4px 8px; line-height: 1.35; white-space: normal; }
+.tile-reco { color: #8fd0f5; font-weight: 600; white-space: normal; }
+.tile-alt { color: var(--fg2); font-style: italic; }
+.prog { margin: 8px 0; }
+.prog-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; }
+.prog-row { width: 100%; text-align: left; background: rgba(143,208,245,.05); border: 1px solid transparent; border-radius: 8px; color: inherit; padding: 4px 8px; cursor: pointer; font: inherit; font-size: 13px; }
+.prog-row:hover { border-color: rgba(143,208,245,.4); }
+.prog-row.on { background: rgba(143,208,245,.18); border-color: #8fd0f5; }
+.prog-me { color: #8fd0f5; font-weight: 600; }
 .tile-unlock { color: var(--fg2); white-space: normal; }
 .slot.tile:has(.gem-tile) { flex-wrap: nowrap; }
 @media (max-width: 420px) { .tile-main { flex-wrap: wrap; } .tile-btns .btn { flex: 1; } }
