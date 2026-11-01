@@ -85,6 +85,7 @@ const state = {
   flame: store.get('flame', 1),
   mybuild: store.get('mybuild', null),
   owned: store.get('owned', {}),
+  gearpick: store.get('gearpick', {}), // emplacement -> nom EN de l'objet choisi parmi les « autres choix »
   mapdone: store.get('mapdone', {}), // carte interactive : lieux faits (identifiant → 1), propres à chaque joueur
   locked: store.get('locked', {}), // tenues pas encore débloquées chez l'artisan (id → true) // objets d'équipement déjà obtenus (nom anglais → true)
   quiz: store.get('quiz', []),
@@ -93,8 +94,8 @@ const state = {
   sel: { mat: null, prod: null }, craftQty: 1, craftStop: {}
 };
 // ---------- Sauvegarde : navigateur (mode local) ou serveur (mode comptes) ----------
-const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone'];
-const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {} };
+const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone', 'gearpick'];
+const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {}, gearpick: {} };
 const srv = { on: false, user: null, last: '', timer: null, pending: null, inflight: false };
 // « il y a 3 min »
 const sinceFr = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'à l\'instant' : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `le ${new Date(t).toLocaleDateString('fr-FR')}`; };
@@ -376,9 +377,9 @@ VIEWS.gear = () => {
   ${later ? `<p class="small muted" style="margin-top:12px"><i class="gi gi-padlock"></i> ${later} tenue(s) de niveau plus élevé s'afficheront quand ton personnage aura le niveau.</p>` : ''}
   <p class="small muted"><i class="gi gi-hammer-drop"></i> = se fabrique chez l'artisan une fois la recette débloquée · <i class="gi gi-rolling-dices"></i> = tombe au hasard dans les coffres et sur les boss. Clique une pièce pour voir sa recette. Noms officiels du jeu en français ; les descriptions viennent du wiki.</p>`;
 };
-AFTER.gear = () => { const s = $('#gBuild'); if (s) s.addEventListener('change', () => { state.mybuild = s.value || null; state.gear.style = null; render(); }); };
+AFTER.gear = () => { const s = $('#gBuild'); if (s) s.addEventListener('change', () => { state.mybuild = s.value || null; pruneGearPicks(); state.gear.style = null; render(); }); };
 ACTIONS.gearStyle = s => { state.gear.style = s; render(); };
-ACTIONS.gearFor = id => { state.mybuild = id; state.gear.style = null; state.charSlot = null; go('char'); };
+ACTIONS.gearFor = id => { state.mybuild = id; pruneGearPicks(); state.gear.style = null; state.charSlot = null; go('char'); };
 // Ajoute les matériaux de toutes les pièces fabricables de l'ensemble à la liste de farm
 ACTIONS.ownToggle = (en, el, e) => { if (e) e.stopPropagation(); state.owned = { ...state.owned }; if (state.owned[en]) delete state.owned[en]; else state.owned[en] = true; render(); };
 ACTIONS.gearList = id => {
@@ -521,6 +522,38 @@ function pickRings(kind, lv) {
   const special = RINGS.filter(r => r.kind === 'special' && (!r.lv || r.lv <= lv) && r.eff.some(e => kind === 'health' ? /vie/.test(e) : kind === 'mana' ? /mana/.test(e) : /endurance/.test(e)));
   return [...std, ...special];
 }
+// Mes choix d'équipement : l'objet choisi parmi les alternatives prend la place de la recommandation (qui devient une alternative)
+const GEAR_CATALOG = { weapon: () => WEAPONS, shield: () => SHIELDS, ring: () => RINGS };
+function gearPickItem(key, kind, en, buildId) {
+  const it = (GEAR_CATALOG[kind] ? GEAR_CATALOG[kind]() : []).find(x => x.en === en);
+  if (!it) return null;
+  const L = LOADOUT[buildId] || LOADOUT.explorer || {};
+  if (kind === 'weapon' && !(L[key] || []).includes(it.type)) return null;
+  if (kind === 'shield' && !!it.ward !== (L.off === 'ward')) return null;
+  return it;
+}
+function applyGearPicks(slots) {
+  const picks = state.gearpick || {};
+  for (const k of Object.keys(picks)) {
+    const s = slots[k]; if (!s || !s.item) continue;
+    const it = gearPickItem(k, s.kind, picks[k], state.mybuild);
+    if (!it || it.en === s.item.en) continue;
+    s.alts = [s.item, ...(s.alts || []).filter(a => a.en !== it.en)];
+    s.item = it; s.picked = true;
+  }
+}
+// Oublie les choix qui ne vont plus avec le build (type d'arme, bouclier/protection, emplacement absent)
+function pruneGearPicks() {
+  const keep = {}, L = LOADOUT[state.mybuild] || LOADOUT.explorer || {};
+  for (const [k, en] of Object.entries(state.gearpick || {})) {
+    const kind = k === 'main' || k === 'alt' ? 'weapon' : k === 'off' ? 'shield' : /^ring/.test(k) ? 'ring' : null;
+    if (!kind || (k === 'off' && !L.off)) continue;
+    if (gearPickItem(k, kind, en, state.mybuild)) keep[k] = en;
+  }
+  state.gearpick = keep;
+}
+ACTIONS.gearPick = arg => { const [k, en] = String(arg).split('|'); state.gearpick = { ...state.gearpick, [k]: en }; render(); };
+ACTIONS.gearUnpick = k => { const g = { ...state.gearpick }; delete g[k]; state.gearpick = g; render(); };
 // Tout l'équipement conseillé (chaque emplacement : l'objet choisi + des alternatives)
 // Équipement complet pour un niveau donné (ou avec un ensemble imposé) : chaque emplacement = l'objet choisi + des alternatives
 function loadout(lv = state.level || 1, forceSet) {
@@ -540,7 +573,9 @@ function loadout(lv = state.level || 1, forceSet) {
   const [k1, k2] = RING_PREF[id] || ['health', 'stamina'], r1 = pickRings(k1, lv), r2 = pickRings(k2, lv); // deux fois le même anneau, c'est permis
   slots.ring1 = { label: 'Anneau', kind: 'ring', item: r1[0], alts: r1.slice(1, 5) };
   slots.ring2 = { label: 'Anneau', kind: 'ring', item: r2[0], alts: r2.slice(1, 5) };
-  return { set, slots, lv };
+  const mine = !forceSet && lv === (state.level || 1);
+  if (mine) applyGearPicks(slots);
+  return { set, slots, lv, mine };
 }
 // Les deux équipements de la page : l'actuel (ce qu'on peut vraiment fabriquer) et le prochain (à préparer)
 function plans() {
@@ -627,7 +662,7 @@ function slotHtml(key, s, pre = 'a') {
   const own = it && state.owned[it.en], k = `${pre}:${key}`;
   return `<button class="slot ${state.charSlot === k ? 'on' : ''} ${it ? (it.craft ? 'craft' : 'loot') : 'empty'} ${own ? 'owned' : ''}" data-act="charSlot" data-arg="${k}">
     ${it ? `<span class="slot-own" data-act="ownToggle" data-arg="${esc(it.en)}" title="${own ? 'Je l\'ai — clic pour décocher' : 'Je l\'ai déjà'}">${own ? '✓' : ''}</span>` : ''}
-    <span class="slot-ico">${it && ITEM_ICONS[it.en] ? itemIcon(it.en, 38) : SLOT_ICON[key]}</span><span class="slot-t"><small>${esc(s.label)}</small><b>${it ? esc(it.fr) : '—'}</b><small>${sub}${src ? ' · ' + escIco(src) : ''}</small></span>${s.kind === 'weapon' && it ? ((g) => g ? gemTile(g, it.en) : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : ''}</button>`;
+    <span class="slot-ico">${it && ITEM_ICONS[it.en] ? itemIcon(it.en, 38) : SLOT_ICON[key]}</span><span class="slot-t"><small>${esc(s.label)}</small><b>${it ? esc(it.fr) : '—'}</b><small>${sub}${src ? ' · ' + escIco(src) : ''}</small>${s.picked ? '<small class="slot-mine" style="color:var(--flame2)">★ Mon choix</small>' : ''}</span>${s.kind === 'weapon' && it ? ((g) => g ? gemTile(g, it.en) : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : ''}</button>`;
 }
 // Un écran d'équipement façon jeu (armes et anneaux à gauche, résumé au centre, armure à droite)
 function dollHtml(lo, pre, center) {
@@ -649,7 +684,8 @@ function slotDetail(key, s, lo) {
   const it = s && s.item;
   if (!it) return `<div class="card muted">Rien de conseillé pour cet emplacement à ton niveau.</div>`;
   const alts = (s.alts || []).map(a => `<li>${zoomIcon(a.en, 28, a.fr)}<b>${esc(a.fr)}</b> <span class="muted small">${a.en !== a.fr ? '(' + esc(a.en) + ') ' : ''}${a.lv ? 'niv. ' + a.lv + ' · ' : ''}${a.craft ? '<i class="gi gi-hammer-drop"></i> ' + (craftAt(a.en) || 'fabricable') : a.biome ? biomeFr(a.biome) : a.src || ''}</span>
-    ${a.perks ? `<div class="small muted">${a.perks.map(p => esc((PERKS[p] || [p])[0])).join(' · ')}</div>` : a.eff ? `<div class="small muted">${a.eff.map(esc).join(' · ')}</div>` : ''}</li>`).join('');
+    ${a.perks ? `<div class="small muted">${a.perks.map(p => esc((PERKS[p] || [p])[0])).join(' · ')}</div>` : a.eff ? `<div class="small muted">${a.eff.map(esc).join(' · ')}</div>` : ''}
+    ${lo.mine && s.kind !== 'armor' ? `<button class="btn sm" data-act="gearPick" data-arg="${esc(key)}|${esc(a.en)}">Choisir celui-ci</button>` : ''}</li>`).join('');
   let body = '';
   if (s.kind === 'armor') {
     // Stats du jeu 1.0 (wikily) : au niveau de base de l'objet, puis à chaque amélioration chez l'artisan
@@ -677,6 +713,7 @@ function slotDetail(key, s, lo) {
   const own = state.owned[it.en];
   return `<div class="card stack"><div class="row" style="justify-content:space-between"><div class="row" style="flex-wrap:nowrap;gap:10px">${zoomIcon(it.en, 72, it.fr)}<div><b style="font-size:16px">${esc(it.fr)}</b>${it.en && it.en !== it.fr ? ` <span class="muted small">(${esc(it.en)})</span>` : ''} <span class="chip">${esc(s.label)}</span></div></div>
     <button class="btn sm ${own ? 'pri' : ''}" data-act="ownToggle" data-arg="${esc(it.en)}">${own ? '✓ Je l\'ai' : '☐ Je l\'ai déjà'}</button></div>
+    ${s.picked ? `<div class="row small"><b style="color:var(--flame2)">★ Mon choix</b> <button class="btn sm" data-act="gearUnpick" data-arg="${esc(key)}">Revenir à la recommandation</button></div>` : ''}
     ${body}${alts ? `<div><h3 style="margin:6px 0">Autres choix</h3><ul class="alts">${alts}</ul></div>` : ''}</div>`;
 }
 VIEWS.char = () => {
@@ -698,7 +735,7 @@ VIEWS.char = () => {
   ${gemsHtml(state.mybuild)}
   <p class="small muted">Armes et anneaux tombent souvent au hasard : la page te propose le meilleur type à viser, puis des alternatives. Noms officiels du jeu en français (le nom anglais est entre parenthèses).</p>`;
 };
-AFTER.char = () => { const s = $('#cBuild'); if (s) s.addEventListener('change', () => { state.mybuild = s.value || null; state.charSlot = null; render(); }); };
+AFTER.char = () => { const s = $('#cBuild'); if (s) s.addEventListener('change', () => { state.mybuild = s.value || null; pruneGearPicks(); state.charSlot = null; render(); }); };
 ACTIONS.charSlot = k => { state.charSlot = state.charSlot === k ? null : k; render(); const d = document.getElementById('detail-' + String(k).split(':')[0]); if (d && state.charSlot) d.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
 // Tenue pas encore débloquée chez l'artisan : l'équipement actuel revient à la tenue précédente
 ACTIONS.lockSet = id => { state.locked = { ...state.locked, [id]: true }; state.charSlot = null; render(); };
