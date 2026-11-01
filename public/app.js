@@ -86,7 +86,6 @@ const state = {
   mybuild: store.get('mybuild', null),
   owned: store.get('owned', {}),
   gemset: store.get('gemset', {}), // emplacement -> « id pierre|nom EN de l'arme » sertie (décochée si l'arme équipée change)
-  gearowned: store.get('gearowned', {}), // emplacement -> [noms EN des pièces cochées « Je l'ai »]
   gearnext: store.get('gearnext', {}), // idem pour le prochain équipement (choix séparé)
   gearpick: store.get('gearpick', {}), // emplacement -> nom EN de l'objet choisi parmi les « autres choix »
   mapdone: store.get('mapdone', {}), // carte interactive : lieux faits (identifiant → 1), propres à chaque joueur
@@ -97,8 +96,8 @@ const state = {
   sel: { mat: null, prod: null }, craftQty: 1, craftStop: {}
 };
 // ---------- Sauvegarde : navigateur (mode local) ou serveur (mode comptes) ----------
-const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone', 'gearpick', 'gearnext', 'gearowned', 'gemset'];
-const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {}, gearpick: {}, gearnext: {}, gearowned: {}, gemset: {} };
+const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone', 'gearpick', 'gearnext', 'gemset'];
+const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {}, gearpick: {}, gearnext: {}, gemset: {} };
 const srv = { on: false, user: null, last: '', timer: null, pending: null, inflight: false };
 // « il y a 3 min »
 const sinceFr = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'à l\'instant' : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `le ${new Date(t).toLocaleDateString('fr-FR')}`; };
@@ -588,21 +587,18 @@ function applyGearPicks(slots, picks = state.gearpick || {}) {
   for (const k of Object.keys(picks)) {
     const s = slots[k]; if (!s || (!s.item && s.kind !== 'armor')) continue;
     const it = gearPickItem(k, s.kind, picks[k], state.mybuild);
-    if (!it) continue;
-    if (s.item && it.en === s.item.en) { s.picked = true; continue; }
+    if (!it || (s.item && it.en === s.item.en)) continue;
     s.alts = [...(s.item ? [s.item] : []), ...(s.alts || []).filter(a => a.en !== it.en)];
     s.item = it; s.picked = true;
   }
 }
-const slotKind = k => k === 'main' || k === 'alt' ? 'weapon' : k === 'off' ? 'shield' : /^ring/.test(k) ? 'ring' : ARMOR_KEYS[k] ? 'armor' : null;
 // Oublie les choix qui ne vont plus avec le build (type d'arme, bouclier/protection, emplacement absent)
 function pruneGearPicks() {
   const L = LOADOUT[state.mybuild] || LOADOUT.explorer || {};
-  migrateGear();
-  for (const name of ['gearpick']) {
+  for (const name of ['gearpick', 'gearnext']) {
     const keep = {};
     for (const [k, en] of Object.entries(state[name] || {})) {
-      const kind = slotKind(k);
+      const kind = k === 'main' || k === 'alt' ? 'weapon' : k === 'off' ? 'shield' : /^ring/.test(k) ? 'ring' : ARMOR_KEYS[k] ? 'armor' : null;
       if (!kind || (k === 'off' && !L.off)) continue;
       if (gearPickItem(k, kind, en, state.mybuild)) keep[k] = en;
     }
@@ -610,22 +606,14 @@ function pruneGearPicks() {
   }
 }
 ACTIONS.gearPick = arg => { const [k, en] = String(arg).split('|'); state.gearpick = { ...state.gearpick, [k]: en }; render(); };
-ACTIONS.gearUnpick = k => { const g = { ...state.gearpick }; delete g[k]; state.gearpick = g; delete TILE[k]; render(); };
-// Ancienne version : « prochain équipement » séparé. Les pièces qu'on y avait marquées « je l'ai » deviennent des pièces équipées (rien n'est perdu),
-// SAUF celles en dessous du niveau du joueur : elles ne comptent pas comme un choix explicite, l'emplacement repart de la pièce de son niveau.
-function migrateGear() {
-  const nx = state.gearnext || {}; if (!Object.keys(nx).length) return;
-  const pick = { ...state.gearpick }, lv = state.level || 1;
-  for (const [k, en] of Object.entries(nx)) {
-    if (!state.owned[en] || pick[k]) continue;
-    const kind = slotKind(k), it = kind && gearPickItem(k, kind, en, state.mybuild);
-    if (!it || itemLv(kind, it) >= lv) pick[k] = en;
-  }
-  state.gearpick = pick; state.gearnext = {};
-}
+ACTIONS.gearUnpick = k => { const g = { ...state.gearpick }; delete g[k]; state.gearpick = g; render(); };
+// Prochain équipement : choix séparé, et « je l'ai déjà » = équipe la pièce tout de suite dans l'équipement actuel
+ACTIONS.gearPickNext = arg => { const [k, en] = String(arg).split('|'); state.gearnext = { ...state.gearnext, [k]: en }; render(); };
+ACTIONS.gearUnpickNext = k => { const g = { ...state.gearnext }; delete g[k]; state.gearnext = g; render(); };
+ACTIONS.gearEquipNow = arg => { const [k, en] = String(arg).split('|'); state.gearpick = { ...state.gearpick, [k]: en }; state.charSlot = 'a:' + k; render(); };
 // Tout l'équipement conseillé (chaque emplacement : l'objet choisi + des alternatives)
 // Équipement complet pour un niveau donné (ou avec un ensemble imposé) : chaque emplacement = l'objet choisi + des alternatives
-function loadout(lv = state.level || 1, forceSet, raw) {
+function loadout(lv = state.level || 1, forceSet, isNext) {
   const id = state.mybuild;
   if (!id) return null;
   const L = LOADOUT[id] || LOADOUT.explorer, set = forceSet || gearAdvice(lv).now, slots = {};
@@ -642,49 +630,19 @@ function loadout(lv = state.level || 1, forceSet, raw) {
   const [k1, k2] = RING_PREF[id] || ['health', 'stamina'], r1 = pickRings(k1, lv), r2 = pickRings(k2, lv); // deux fois le même anneau, c'est permis
   slots.ring1 = { label: 'Anneau', kind: 'ring', item: r1[0], alts: r1.slice(1, 5) };
   slots.ring2 = { label: 'Anneau', kind: 'ring', item: r2[0], alts: r2.slice(1, 5) };
-  const mine = !forceSet && !raw && lv === (state.level || 1);
-  if (mine) { applyLevelPieces(slots); applyGearPicks(slots); }
-  return { set, slots, lv, mine };
+  const mine = !forceSet && lv === (state.level || 1);
+  if (mine) applyGearPicks(slots);
+  else if (isNext) applyGearPicks(slots, state.gearnext || {});
+  return { set, slots, lv, mine, isNext: !!isNext };
 }
-// L'équipement porté : meilleure recommandation de son niveau, sauf pièces équipées (gearpick)
-function equipped() { migrateGear(); return loadout(state.level || 1); }
-// Pièces CONSEILLÉES par le build : pour chaque emplacement, la recommandation de chaque niveau (1 à 50), regroupée en paliers [{lv, it}] (lv = niveau où elle devient la conseillée)
-let RECO_CACHE = { sig: '', steps: {} };
-function recoSteps(key) {
-  const sig = JSON.stringify([state.mybuild, state.locked, state.gear && state.gear.style]);
-  if (RECO_CACHE.sig !== sig) {
-    const steps = {};
-    for (let lv = 1; lv <= 50; lv++) {
-      const lo = loadout(lv, null, true); if (!lo) break;
-      for (const [k, s] of Object.entries(lo.slots)) {
-        if (!s.item) continue;
-        const a = steps[k] || (steps[k] = []);
-        if (!a.some(x => x.it.en === s.item.en)) a.push({ lv, it: s.item });
-      }
-    }
-    RECO_CACHE = { sig, steps };
-  }
-  return RECO_CACHE.steps[key] || [];
-}
-const recoOf = (key, it) => it ? recoSteps(key).find(x => x.it.en === it.en) || null : null;
-// Chaque emplacement part de la pièce CONSEILLÉE du palier le plus haut <= niveau du joueur (sinon la conseillée la plus basse). Les pièces équipées (gearpick) passent par-dessus.
-function levelPiece(kind, list, lv, key) {
-  const st = recoSteps(key);
-  if (st.length) { const ok = st.filter(x => x.lv <= lv), r = ok.length ? ok[ok.length - 1] : st[0]; return list.find(x => x.en === r.it.en) || r.it; }
-  let best = null;
-  for (const x of list) { const l = itemLv(kind, x); if (l <= lv && (!best || l > itemLv(kind, best))) best = x; }
-  return best || list[0] || null;
-}
-function applyLevelPieces(slots) {
-  const lv = state.level || 1;
-  for (const [k, s] of Object.entries(slots)) {
-    if (!s.item && s.kind !== 'armor') continue;
-    const it = levelPiece(s.kind, slotList(k, s), lv, k); if (!it) continue;
-    s.lvItem = it;
-    if (s.item && it.en === s.item.en) continue;
-    s.alts = [...(s.item ? [s.item] : []), ...(s.alts || []).filter(a => a.en !== it.en)];
-    s.item = it;
-  }
+// Les deux équipements de la page : l'actuel (ce qu'on peut vraiment fabriquer) et le prochain (à préparer)
+function plans() {
+  const lv = state.level || 1, now = loadout(lv);
+  if (!now) return null;
+  const wanted = gearAdvice(lv, true).now; // le meilleur de ton niveau, même si sa recette n'est pas encore débloquée
+  if (wanted && now.set && wanted !== now.set) return { now, next: loadout(lv, wanted, true), toUnlock: true };
+  const nl = (gearAdvice(lv).next || {}).lv;
+  return { now, next: nl ? loadout(nl, undefined, true) : null, toUnlock: false };
 }
 // Où obtenir un objet (data/provenance.js, wikily, jeu 1.0) : artisan, coffres, boss, coffre précis
 const provOf = en => (window.PROV || {})[en] || null;
@@ -754,109 +712,39 @@ ACTIONS.zoomItem = arg => {
   document.body.appendChild(box);
 };
 const SLOT_ICON = { head: '<i class="gi gi-visored-helm"></i>', chest: '<i class="gi gi-breastplate"></i>', hands: '<i class="gi gi-gauntlet"></i>', legs: '<i class="gi gi-trousers"></i>', feet: '<i class="gi gi-boots"></i>', main: '<i class="gi gi-crossed-swords"></i>', off: '<i class="gi gi-checked-shield"></i>', alt: '<i class="gi gi-bow-arrow"></i>', ring1: '<i class="gi gi-ring"></i>', ring2: '<i class="gi gi-ring"></i>' };
-// ---- Une seule poupée : chaque emplacement est une tuile qui fait défiler toutes les pièces possibles (triées par niveau) ----
-const TILE = {}; // emplacement -> nom EN de la pièce affichée (pas encore équipée) ; non sauvegardé
-const itemLv = (kind, it) => kind === 'armor' ? ((it.stats && it.stats[3]) || (it.set && it.set.lv) || 0) : (it.lv || 0);
-function slotList(key, s, lo) {
-  const id = state.mybuild, L = LOADOUT[id] || LOADOUT.explorer || {};
-  let list = [];
-  if (s.kind === 'armor') {
-    const re = ARMOR_KEYS[key];
-    for (const set of GEAR) {
-      if (set.style !== gearStyle()) continue;
-      const p = (set.pieces || []).find(q => pieceFr(q[0]) === re);
-      if (p) list.push(armorItem(set, p, re));
-    }
-  } else if (s.kind === 'weapon') list = WEAPONS.filter(w => w.lv && (L[key] || []).includes(w.type));
-  else if (s.kind === 'shield') list = SHIELDS.filter(x => x.lv && !!x.ward === (L.off === 'ward'));
-  else {
-    const [k1, k2] = RING_PREF[id] || ['health', 'stamina'], kind = key === 'ring1' ? k1 : k2;
-    list = RINGS.filter(r => r.lv && (r.kind === kind || (r.kind === 'special' && r.eff.some(e => kind === 'health' ? /vie/.test(e) : kind === 'mana' ? /mana/.test(e) : /endurance/.test(e)))));
-  }
-  for (const it of [s.item, ...(s.alts || []), ...recoSteps(key).map(x => x.it)]) if (it && !list.some(x => x.en === it.en)) list.push(it);
-  return list.map((it, i) => [it, i]).sort((a, b) => (itemLv(s.kind, a[0]) - itemLv(s.kind, b[0])) || (a[1] - b[1])).map(x => x[0]);
-}
-const isOwned = (key, en) => !!(state.owned[en] || ((state.gearowned || {})[key] || []).includes(en));
-// Où trouver une pièce (une ligne)
-function srcOf(kind, it) {
-  const made = craftAt(it.en) || (kind === 'armor' && it.craft ? station(it.set.station) : null), loot = lootShort(it.en);
-  if (kind === 'armor') return it.craft && made ? '<i class="gi gi-hammer-drop"></i> ' + made : (loot || '<i class="gi gi-rolling-dices"></i> butin');
-  if (kind === 'weapon') return it.craft ? '<i class="gi gi-hammer-drop"></i> ' + (made || 'fabricable') : it.lore ? '<i class="gi gi-scroll-quill"></i> arme unique' : loot || '<i class="gi gi-rolling-dices"></i> ' + biomeFr(it.biome || '');
-  if (kind === 'shield') return it.craft ? '<i class="gi gi-hammer-drop"></i> ' + (made || 'fabricable') : loot || '<i class="gi gi-rolling-dices"></i> à trouver';
-  return loot || (it.biome ? '<i class="gi gi-rolling-dices"></i> ' + biomeFr(it.biome) : '<i class="gi gi-position-marker"></i> lieu précis');
-}
-// Prochaine pièce plus forte (niveau supérieur) que l'équipée
-function betterThan(kind, list, eq) {
-  if (!eq) return list[0] || null;
-  const lv = itemLv(kind, eq);
-  return list.find(x => itemLv(kind, x) > lv) || null;
-}
-function tileState(key, s, lo) {
-  const list = slotList(key, s, lo), eq = s.item, shown = list.find(x => x.en === TILE[key]) || eq || list[0] || null;
-  const lvIt = s.lvItem || null, below = !!(s.picked && lvIt && eq && itemLv(s.kind, eq) < itemLv(s.kind, lvIt));
-  let better = (eq && list.find(x => recoOf(key, x) && itemLv(s.kind, x) > itemLv(s.kind, eq))) || betterThan(s.kind, list, eq); if (below && better && better.en === lvIt.en) better = null;
-  return { list, eq, shown, better, lvIt, below };
-}
-function tileHtml(key, s, lo) {
+function slotHtml(key, s, pre = 'a') {
   if (!s) return '';
-  const { list, eq, shown, better, lvIt, below } = tileState(key, s, lo), it = shown, k = 'a:' + key;
-  if (!it) return `<div class="slot tile empty"><span class="slot-t"><small>${esc(s.label)}</small><b>—</b><small>Rien pour cet emplacement</small></span></div>`;
-  const isEq = !!eq && eq.en === it.en, own = isOwned(key, it.en), idx = list.findIndex(x => x.en === it.en);
-  const sub = s.kind === 'armor' && it.stats ? `Armure physique ${it.stats[0]} · Armure magique ${it.stats[1]}` : s.kind === 'weapon' ? esc(WTYPE(it.type)) : s.kind === 'shield' ? `blocage ${it.block}` : (it.eff[0] || '');
-  const unlock = s.kind === 'armor' && it.set.unlock && !it.set.pieces.some(([p]) => state.owned[p]) && isLocked(it.set) ? `<small class="tile-unlock"><i class="gi gi-padlock-open"></i> ${esc(it.set.unlock)}</small>` : '';
-  const gem = s.kind === 'weapon' && isEq ? ((g) => g ? gemTile(g, it.en) + `<span class="gem-set-row"><button class="btn sm ${isGemSet(key, g.key, it.en) ? 'pri' : ''}" data-act="gemSet" data-arg="${esc(key)}|${esc(g.key)}|${esc(it.en)}">${isGemSet(key, g.key, it.en) ? '✔ Sertie' : '☐ Sertie'}</button>${sertiShort(it)}</span>` : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : '';
-  const lvl = itemLv(s.kind, it), rc = recoOf(key, it);
-  const reco = rc ? `<small class="tile-reco">★ Conseillée pour ton build — niv. ${rc.lv}</small>` : '<small class="tile-alt">Alternative</small>';
-  return `<div class="slot tile ${state.charSlot === k ? 'on' : ''} ${isEq ? 'equipped' : ''} ${own ? 'owned' : ''}">
-    <div class="tile-nav"><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|-1" aria-label="Pièce précédente">◀</button><small>${esc(s.label)} · ${idx + 1}/${list.length}</small><button class="btn sm" data-act="tileNav" data-arg="${esc(key)}|1" aria-label="Pièce suivante">▶</button></div>
-    <div class="tile-main"><span class="slot-ico">${ITEM_ICONS[it.en] ? zoomIcon(it.en, 44, it.fr) : SLOT_ICON[key]}</span>
-      <span class="slot-t" data-act="charSlot" data-arg="${k}" role="button" tabindex="0"><b>${esc(it.fr)}</b>${reco}<small>${lvl ? 'Niveau ' + lvl : 'Niveau ?'}${isEq ? ' · <span class="slot-mine">★ Équipée</span>' : ''}</small><small>${sub}</small><small>${escIco(srcOf(s.kind, it))}</small>${unlock}</span></div>
-    <div class="tile-btns"><button class="btn sm ${own ? 'pri' : ''}" data-act="tileOwn" data-arg="${esc(key)}|${esc(it.en)}">${own ? '✔ Je l\'ai' : '☐ Je l\'ai'}</button>${isEq ? '' : `<button class="btn sm pri" data-act="tileEquip" data-arg="${esc(key)}|${esc(it.en)}">Équiper</button>`}${lvIt && lvIt.en !== it.en ? `<button class="btn sm" data-act="tileLevel" data-arg="${esc(key)}" title="Revenir à la pièce de ton niveau">◎ Mon niveau</button>` : ''}</div>
-    ${gem}
-    ${below ? `<small class="tile-better">↑ Ton niveau : <b>${esc(lvIt.fr)}</b> (niv. ${itemLv(s.kind, lvIt)}) — ${escIco(srcOf(s.kind, lvIt))}</small>` : ''}
-    ${better ? `<small class="tile-better">↑ Mieux : <b>${esc(better.fr)}</b> (niv. ${itemLv(s.kind, better)}) — ${escIco(srcOf(s.kind, better))}</small>` : ''}</div>`;
+  const it = s.item, made = it && (craftAt(it.en) || (s.kind === 'armor' && it.craft ? station(it.set.station) : null)), loot = it && lootShort(it.en);
+  const src = !it ? '' : it.craft && made ? '<i class="gi gi-hammer-drop"></i> ' + made : s.kind === 'armor' ? (loot || '<i class="gi gi-rolling-dices"></i> butin') : s.kind === 'weapon' ? (it.craft ? '<i class="gi gi-hammer-drop"></i> ' + (made || 'fabricable') : it.lore ? '<i class="gi gi-scroll-quill"></i> arme unique' : loot || '<i class="gi gi-rolling-dices"></i> ' + biomeFr(it.biome || '')) : s.kind === 'shield' ? (it.craft ? '<i class="gi gi-hammer-drop"></i> ' + (made || 'fabricable') : loot || '<i class="gi gi-rolling-dices"></i> à trouver') : (loot || (it.biome ? '<i class="gi gi-rolling-dices"></i> ' + biomeFr(it.biome) : '<i class="gi gi-position-marker"></i> lieu précis'));
+  const sub = !it ? '' : s.kind === 'armor' && it.stats ? `Armure physique ${it.stats[0]} · Armure magique ${it.stats[1]}` : s.kind === 'weapon' ? esc(WTYPE(it.type)) + (it.lv ? ` · niv. ${it.lv}` : '') : s.kind === 'shield' ? `blocage ${it.block}` : (it.eff[0] || '');
+  const own = it && state.owned[it.en], k = `${pre}:${key}`;
+  return `<button class="slot ${state.charSlot === k ? 'on' : ''} ${it ? (it.craft ? 'craft' : 'loot') : 'empty'} ${own ? 'owned' : ''}" data-act="charSlot" data-arg="${k}">
+    ${it ? `<span class="slot-own" data-act="ownToggle" data-arg="${esc(it.en)}" title="${own ? 'Je l\'ai — clic pour décocher' : 'Je l\'ai déjà'}">${own ? '✓' : ''}</span>` : ''}
+    <span class="slot-ico">${it && ITEM_ICONS[it.en] ? itemIcon(it.en, 38) : SLOT_ICON[key]}</span><span class="slot-t"><small>${esc(s.label)}</small><b>${it ? esc(it.fr) : '—'}</b><small>${sub}${src ? ' · ' + escIco(src) : ''}</small>${s.picked ? '<small class="slot-mine" style="color:var(--flame2)">★ Mon choix</small>' : ''}</span>${s.kind === 'weapon' && it ? ((g) => g ? gemTile(g, it.en) + (pre === 'a' ? `<span class="gem-set-row"><span class="btn sm ${isGemSet(key, g.key, it.en) ? 'pri' : ''}" role="button" tabindex="0" data-act="gemSet" data-arg="${esc(key)}|${esc(g.key)}|${esc(it.en)}">${isGemSet(key, g.key, it.en) ? '✔ Sertie' : '☐ Sertie'}</span>${sertiShort(it)}</span>` : '') : '')(gemsForWeapon(it, state.mybuild, 1)[0]) : ''}</button>`;
 }
-ACTIONS.tileNav = arg => {
-  const [key, d] = String(arg).split('|'), lo = equipped(), s = lo && lo.slots[key]; if (!s) return;
-  const { list, shown } = tileState(key, s, lo); if (!list.length) return;
-  const i = list.findIndex(x => x.en === (shown && shown.en));
-  TILE[key] = list[(i + Number(d) + list.length) % list.length].en; render();
-};
-ACTIONS.tileLevel = key => { const lo = equipped(), s = lo && lo.slots[key]; if (!s || !s.lvItem) return; TILE[key] = s.lvItem.en; render(); };
-ACTIONS.tileShow = arg => { const [key, en] = String(arg).split('|'); TILE[key] = en; render(); };
-ACTIONS.tileOwn = arg => {
-  const [key, en] = String(arg).split('|'), go = { ...(state.gearowned || {}) }, cur = go[key] || [], o = { ...state.owned };
-  if (isOwned(key, en)) { go[key] = cur.filter(x => x !== en); delete o[en]; } else { go[key] = [...cur, en]; o[en] = true; }
-  state.gearowned = go; state.owned = o; render();
-};
-ACTIONS.tileEquip = arg => { const [key, en] = String(arg).split('|'); state.gearpick = { ...state.gearpick, [key]: en }; state.gemset = Object.fromEntries(Object.entries(state.gemset || {}).filter(([k]) => k !== key)); delete TILE[key]; state.charSlot = null; render(); };
-// Un seul équipement : ce qu'on porte (par défaut la meilleure recommandation de son niveau, sinon la pièce équipée)
-function dollHtml(lo, center) {
+// Un écran d'équipement façon jeu (armes et anneaux à gauche, résumé au centre, armure à droite)
+function dollHtml(lo, pre, center) {
   const S = lo.slots, armor = ['head', 'chest', 'hands', 'legs', 'feet'].map(k => S[k] && S[k].item && S[k].item.stats).filter(Boolean);
   const phys = armor.reduce((t, a) => t + a[0], 0), mag = armor.reduce((t, a) => t + a[1], 0);
-  const T = k => tileHtml(k, S[k], lo);
   return `<div class="doll">
-    <div class="doll-col">${T('main')}${T('off')}${T('alt')}<div class="doll-rings">${T('ring1')}${T('ring2')}</div></div>
+    <div class="doll-col">${slotHtml('main', S.main, pre)}${slotHtml('off', S.off, pre)}${slotHtml('alt', S.alt, pre)}<div class="doll-rings">${slotHtml('ring1', S.ring1, pre)}${slotHtml('ring2', S.ring2, pre)}</div></div>
     <div class="doll-mid">
       <div class="doll-stats"><div><small>Armure physique</small><b>${phys}</b></div><div><small>Armure magique</small><b>${mag}</b></div>${S.off && S.off.item ? `<div><small>Blocage</small><b>${S.off.item.block}</b></div>` : ''}</div>
-      ${lo.set ? `<div class="small" style="text-align:center">Tenue conseillée : <b>${esc(lo.set.fr)}</b> (niveau ${lo.set.lv})</div>` : ''}
+      ${lo.set ? `<div class="small" style="text-align:center">Tenue : <b>${esc(lo.set.fr)}</b> (niveau ${lo.set.lv})<br><b style="color:var(--flame2)">${lo.set.pieces.filter(([p]) => state.owned[p]).length}/${lo.set.pieces.length}</b> <span class="muted">pièces obtenues</span></div>` : ''}
       ${center}
     </div>
-    <div class="doll-col">${['head', 'chest', 'hands', 'legs', 'feet'].map(T).join('')}</div>
+    <div class="doll-col">${['head', 'chest', 'hands', 'legs', 'feet'].map(k => slotHtml(k, S[k], pre)).join('')}</div>
   </div>
-  <div class="doll-detail" id="detail-a">${(([p, k]) => p === 'a' && lo.slots[k] ? slotDetail(k, lo.slots[k], lo) : '')(String(state.charSlot || '').split(':'))}</div>`;
+  <div class="doll-detail" id="detail-${pre}">${(([p, k]) => p === pre && lo.slots[k] ? slotDetail(k, lo.slots[k], lo) : '')(String(state.charSlot || '').split(':'))}</div>`;
 }
 
-// « Progression conseillée » : la pièce conseillée du build à chaque palier, la ligne du niveau actuel en évidence
-function progHtml(key, s0) {
-  const st = recoSteps(key); if (st.length < 1) return '';
-  const cur = s0.lvItem && s0.lvItem.en, lv = state.level || 1;
-  return `<div class="prog"><b class="small">Progression conseillée</b><ul class="prog-list">${st.map(x => `<li><button class="prog-row ${x.it.en === cur ? 'on' : ''}" data-act="tileShow" data-arg="${esc(key)}|${esc(x.it.en)}">niv. ${x.lv} → <b>${esc(x.it.fr)}</b>${x.it.en === cur ? ` <span class="prog-me">◎ ton niveau (${lv})</span>` : ''}</button></li>`).join('')}</ul></div>`;
-}
-function slotDetail(key, s0, lo) {
-  const { shown, eq } = tileState(key, s0, lo), s = { ...s0, item: shown, alts: [] }, it = shown;
-  if (!it) return `<div class="card muted">Rien de conseillé pour cet emplacement.</div>`;
-  const alts = '';
+const equipNowBtn = (key, en) => `<button class="btn sm pri" data-act="gearEquipNow" data-arg="${esc(key)}|${esc(en)}">Je l'ai déjà — l'équiper maintenant</button>`;
+function slotDetail(key, s, lo) {
+  const it = s && s.item;
+  if (!it) return `<div class="card muted">Rien de conseillé pour cet emplacement à ton niveau.</div>`;
+  const alts = (s.alts || []).map(a => `<li>${zoomIcon(a.en, 28, a.fr)}<b>${esc(a.fr)}</b> <span class="muted small">${a.en !== a.fr ? '(' + esc(a.en) + ') ' : ''}${a.lv ? 'niv. ' + a.lv + ' · ' : ''}${a.craft ? '<i class="gi gi-hammer-drop"></i> ' + (craftAt(a.en) || 'fabricable') : a.biome ? biomeFr(a.biome) : a.src || ''}</span>
+    ${a.perks ? `<div class="small muted">${a.perks.map(p => esc((PERKS[p] || [p])[0])).join(' · ')}</div>` : a.eff ? `<div class="small muted">${a.eff.map(esc).join(' · ')}</div>` : ''}
+    ${lo.mine && s.kind !== 'armor' ? `<button class="btn sm" data-act="gearPick" data-arg="${esc(key)}|${esc(a.en)}">Choisir celui-ci</button>` : ''}${lo.isNext ? `${s.kind !== 'armor' ? `<button class="btn sm" data-act="gearPickNext" data-arg="${esc(key)}|${esc(a.en)}">Choisir celui-ci</button> ` : ''}${equipNowBtn(key, a.en)}` : ''}</li>`).join('');
   let body = '';
   if (s.kind === 'armor') {
     // Stats du jeu 1.0 (wikily) : au niveau de base de l'objet, puis à chaque amélioration chez l'artisan
@@ -881,25 +769,29 @@ function slotDetail(key, s0, lo) {
   } else {
     body = `<p class="small">${it.eff.map(esc).join(' · ')}</p>${provHtml(it.en) || `<p class="small muted"><i class="gi gi-position-marker"></i> ${esc(it.src)}</p>`}`;
   }
-  const own = isOwned(key, it.en);
+  const own = state.owned[it.en];
   return `<div class="card stack"><div class="row" style="justify-content:space-between"><div class="row" style="flex-wrap:nowrap;gap:10px">${zoomIcon(it.en, 72, it.fr)}<div><b style="font-size:16px">${esc(it.fr)}</b>${it.en && it.en !== it.fr ? ` <span class="muted small">(${esc(it.en)})</span>` : ''} <span class="chip">${esc(s.label)}</span></div></div>
-    <div class="row"><button class="btn sm ${own ? 'pri' : ''}" data-act="tileOwn" data-arg="${esc(key)}|${esc(it.en)}">${own ? '✔ Je l\'ai' : '☐ Je l\'ai'}</button>${eq && eq.en === it.en ? '' : `<button class="btn sm pri" data-act="tileEquip" data-arg="${esc(key)}|${esc(it.en)}">Équiper</button>`}</div></div>
-    ${eq && eq.en === it.en && s0.picked ? `<div class="row small"><b class="slot-mine">★ Équipée</b> <button class="btn sm" data-act="gearUnpick" data-arg="${esc(key)}">Revenir à la recommandation</button></div>` : ''}
-    ${progHtml(key, s0)}
-    ${body}</div>`;
+    <button class="btn sm ${own ? 'pri' : ''}" data-act="ownToggle" data-arg="${esc(it.en)}">${own ? '✓ Je l\'ai' : '☐ Je l\'ai déjà'}</button></div>
+    ${s.picked ? `<div class="row small"><b style="color:var(--flame2)">★ Mon choix</b> <button class="btn sm" data-act="${lo.isNext ? 'gearUnpickNext' : 'gearUnpick'}" data-arg="${esc(key)}">Revenir à la recommandation</button></div>` : ''}
+    ${lo.isNext ? `<div class="row small">${equipNowBtn(key, it.en)}</div>` : ''}
+    ${body}${alts ? `<div><h3 style="margin:6px 0">Autres choix</h3><ul class="alts">${alts}</ul></div>` : ''}</div>`;
 }
 VIEWS.char = () => {
-  const b = BUILDS.find(x => x.id === state.mybuild), lv = state.level || 1, now = equipped();
+  const b = BUILDS.find(x => x.id === state.mybuild), lv = state.level || 1, P = plans();
   const pick = `<select id="cBuild"><option value="">— choisir mon build —</option>${BUILDS.map(x => `<option value="${x.id}" ${state.mybuild === x.id ? 'selected' : ''}>${esc(x.name.split(' —')[0])}</option>`).join('')}</select>`;
-  if (!now) return `<h1><i class="gi gi-visored-helm"></i> Mon personnage</h1><div class="card stack" style="max-width:560px"><p>Choisis ton build : la page te propose alors l'armure, les armes et les anneaux à équiper pour ton niveau.</p>
+  if (!P) return `<h1><i class="gi gi-visored-helm"></i> Mon personnage</h1><div class="card stack" style="max-width:560px"><p>Choisis ton build : la page te propose alors l'armure, les armes et les anneaux à équiper pour ton niveau.</p>
     <div class="row">${pick}<a class="btn" data-go="quiz"><i class="gi gi-compass"></i> Je ne sais pas : faire le questionnaire</a></div></div>`;
-  const set = now.set;
+  const now = P.now, next = P.next, set = now.set;
   const lockBtn = set && set.unlock ? `<div class="small muted" style="text-align:center">Tu ne vois pas cette tenue ${esc(chezArtisan(set.station))} ?</div><button class="btn sm" data-act="lockSet" data-arg="${esc(set.id)}"><i class="gi gi-padlock"></i> Pas encore débloquée</button>` : '';
+  const unlockBox = next && next.set && next.set.unlock ? `<div class="small unlock" style="text-align:center"><i class="gi gi-padlock-open"></i> ${esc(next.set.unlock)}</div>` : '';
   return `<h1><i class="gi gi-visored-helm"></i> Mon personnage</h1>
   <div class="card row" style="margin-bottom:14px;gap:10px"><label class="row small">Mon build ${pick}</label><span class="small muted">${bIco(b)} Niveau ${lv}${state.game ? ' (lu dans ta sauvegarde)' : ''} · Flamme ${state.flame}</span>
     <a class="small" data-go="planner"><i class="gi gi-skills"></i> Mon arbre</a><a class="small" data-go="gear"><i class="gi gi-checked-shield"></i> Toutes les tenues</a></div>
-  <h2><i class="gi gi-checked-shield"></i> Mon équipement <span class="muted small">— fais défiler ◀ ▶ les pièces de chaque emplacement ; le niveau est une simple info</span></h2>
-  ${dollHtml(now, `${lockBtn}<p class="small muted" style="text-align:center;margin:4px 0 0">Coche « Je l'ai » puis « Équiper » : la ligne « ↑ Mieux » te montre la suite.</p>`)}
+  <h2><i class="gi gi-checked-shield"></i> Mon équipement actuel <span class="muted small">— ce que tu peux porter et fabriquer maintenant (niveau ${lv})</span></h2>
+  ${dollHtml(now, 'a', `${lockBtn}<p class="small muted" style="text-align:center;margin:4px 0 0">Clique un emplacement pour le détail ; coche le rond quand tu as l'objet.</p>`)}
+  ${next ? `<h2 style="margin-top:22px"><i class="gi gi-spyglass"></i> ${P.toUnlock ? `Mon prochain équipement — à débloquer (niveau ${next.set.lv})` : `Mon prochain équipement — dès le niveau ${next.lv}`}</h2>
+  <p class="small muted" style="margin-top:-6px">${P.toUnlock ? 'Cette tenue est de ton niveau, mais sa recette n\'est pas encore chez ton artisan : voici comment la débloquer.' : 'Pour préparer la suite : tu peux déjà farmer les matériaux.'}</p>
+  ${dollHtml(next, 'f', `${unlockBox}${P.toUnlock ? `<button class="btn sm pri" data-act="unlockSet" data-arg="${esc(next.set.id)}">✓ C'est débloqué</button>` : ''}${next.set && next.set.pieces.some(p => p[1]) ? `<button class="btn sm" data-act="gearList" data-arg="${esc(next.set.id)}">+ Matériaux à ma liste</button>` : ''}`)}` : ''}
   ${gemsHtml(state.mybuild)}
   <p class="small muted">Armes et anneaux tombent souvent au hasard : la page te propose le meilleur type à viser, puis des alternatives. Noms officiels du jeu en français (le nom anglais est entre parenthèses).</p>`;
 };

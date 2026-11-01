@@ -16,8 +16,8 @@ vm.runInContext(fs.readFileSync(path.join(pub, 'app.js'), 'utf8').replace(/\nboo
 const run = c => vm.runInContext(c, ctx), J = c => JSON.parse(run(`JSON.stringify(${c})`));
 run(`state.mybuild = 'guardian'; state.level = 32; render = () => {};`);
 const q = s => s.replace(/'/g, "\\'");
-const mainHtml = () => run(`(() => { const lo = equipped(); return tileHtml('main', lo.slots.main, lo); })()`);
-const cur = () => J(`(() => { const w = equipped().slots.main.item; return { en: w.en, lv: w.lv, gem: gemsForWeapon(w, state.mybuild, 1)[0].key }; })()`);
+const mainHtml = () => run(`(() => { const lo = plans().now; return slotHtml('main', lo.slots.main, 'a'); })()`);
+const cur = () => J(`(() => { const w = plans().now.slots.main.item; return { en: w.en, lv: w.lv, gem: gemsForWeapon(w, state.mybuild, 1)[0].key }; })()`);
 
 // 1. données : 20 forges identifiées, essence I→VII croissante avec le niveau
 assert(J('SERTISSAGE.forges.filter(f => f.tier).length') >= 20);
@@ -33,9 +33,9 @@ run(`ACTIONS.gemSet('${slotArg}')`);
 assert(/✔ Sertie/.test(mainHtml())); assert(J('state.gemset').main.startsWith(c.gem), 'mémorisée dans gemset');
 run(`ACTIONS.gemSet('${slotArg}')`); assert(/☐ Sertie/.test(mainHtml()), 'recocher/décocher');
 run(`ACTIONS.gemSet('${slotArg}')`);
-const better = J(`(() => { const lo = equipped(); return tileState('main', lo.slots.main, lo).better.en; })()`);
-run(`ACTIONS.tileEquip('main|${q(better)}')`);
-assert(!J('state.gemset').main, 'décochée quand l\'arme équipée change'); assert(/☐ Sertie/.test(mainHtml()));
+const alt = J(`(() => { const lo = plans().now; return lo.slots.main.alts.find(a => gemsForWeapon(a, state.mybuild, 1)[0]).en; })()`);
+run(`ACTIONS.gearPick('main|${q(alt)}')`);
+assert(/☐ Sertie/.test(mainHtml()), 'décochée quand l\'arme équipée change'); assert(cur().en === alt, 'Mon choix = arme équipée'); run(`ACTIONS.gearUnpick('main')`);
 console.log('OK case Sertie mémorisée puis décochée');
 
 // 3. fiche : essence, forges avec carte, sources de la pierre ; synchro
