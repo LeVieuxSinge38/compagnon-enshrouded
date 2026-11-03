@@ -848,8 +848,17 @@ state.treeView = { ...FULL_VIEW };
 state.treeSel = null;
 state.treeQ = '';
 
+// Plan fini (tout débloqué en jeu) mais des points restent : on propose la suite du build, qui clignote aussi
+function treeSuite() {
+  if (!state.game || !state.tree.length) return new Map();
+  const got = gameMap();
+  if (state.tree.some(([id, r]) => (got.get(id) || 0) < r)) return new Map();
+  const b = BUILDS.find(x => x.id === state.mybuild);
+  return new Map(ST.suite(state.tree, got, availPoints(), b ? { skills: [...b.skills, ...UNIVERSAL], attrs: b.attrs } : null));
+}
+
 function treeSvg() {
-  const plan = state.tree, have = new Map(plan.map(p => [p[0], p[1]])), avail = availPoints(), got = gameMap();
+  const sug = treeSuite(), plan = state.tree, have = new Map(plan.map(p => [p[0], p[1]])), avail = availPoints(), got = gameMap();
   const stepOf = {}; ST.steps(plan).forEach(s => { stepOf[s.id] = s; });
   const v = state.treeView, k = v.w / Math.max(400, state._svgW || 800); // unités SVG par pixel : numéros et textes gardent la même taille à l'écran
   const R = { small: 10, medium: 15, large: 21 };
@@ -872,13 +881,14 @@ function treeSvg() {
     let cls = 'tn';
     if (g > 0 && g >= (rank || t.m)) cls += ' got';
     else if (rank) cls += ' todo';
+    else if (sug.has(+id)) cls += ' todo';
     if (nq && norm(t.n + ' ' + t.en).includes(nq)) cls += ' hit';
     if (state.treeSel === +id) cls += ' sel';
     nodes += `<g class="${cls}" data-node="${id}" transform="translate(${n.x} ${n.y})" style="--c:${ST.color(id)}">`
       + (n.base ? `<circle class="tn-base" r="${r + 6}"/>` : '')
       + `<circle class="tn-c" r="${r}"/>`
       + (cls.includes(' got') ? `<text class="tn-ok" y="${(r * 0.38).toFixed(1)}" style="font-size:${(r * 1.15).toFixed(1)}px">✓</text>` : '')
-      + (t.m > 1 && (g || rank) ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${g}/${t.m}</text>` : '')
+      + (t.m > 1 && (g || rank || sug.has(+id)) ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${g}/${t.m}</text>` : '')
       + '</g>';
   }
   // Noms d'archétypes à l'extérieur de l'anneau (au-delà du nœud le plus éloigné), comme dans le jeu
@@ -899,7 +909,9 @@ VIEWS.planner = () => {
   const nowSteps = steps.filter(s => s.total <= avail).length;
   const isDone = s => (got.get(s.id) || 0) >= s.rank;
   const doneCount = steps.filter(isDone).length, next = steps.find(s => !isDone(s));
+  const sugN = [...treeSuite()].reduce((a, [id, r]) => a + ST.typeOf(id).c * (r - (got.get(id) || 0)), 0);
   return `<h1><i class="gi gi-skills"></i> Arbre de compétences</h1>
+  ${sugN ? `<p class="sub"><b>${sugN} points à placer</b> — ce qui clignote est conseillé.</p>` : ''}
   <p class="sub">L'arbre du jeu (version 1.0). <b>Clic</b> sur un nœud pour l'ajouter, <b>clic droit</b> pour le retirer, <b>molette</b> pour zoomer, <b>glisser</b> pour te déplacer. Charge un build pour voir tout le chemin : ce qui clignote est à débloquer.</p>
   <div class="tree-wrap">
     <div class="tree-box card">

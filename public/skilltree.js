@@ -124,6 +124,43 @@
     });
   }
 
+  // Suite conseillée : quand le plan est fini et qu'il reste des points, retourne les nœuds à ajouter [[id, rang final]].
+  // 1) la suite du build (compétences pas encore prises), 2) sinon les nœuds accessibles de la couleur dominante.
+  // plan = [[id, rang]], got = Map(id -> rang débloqué en jeu), build = { skills, attrs } ou null. Ne retire jamais rien.
+  function suite(plan, got, avail, build) {
+    const owned = planMap(plan);
+    for (const [id, r] of got || []) if (NODE[id] && r > (owned.get(id) || 0)) owned.set(id, r);
+    const ownedList = () => [...owned];
+    let budget = avail - spent(ownedList());
+    const add = new Map();
+    if (budget <= 0) return [];
+    const give = (id, r) => { // passe le nœud au rang r, si le budget le permet
+      const d = (r - (owned.get(id) || 0)) * typeOf(id).c;
+      if (d <= 0 || d > budget) return d <= 0;
+      budget -= d; owned.set(id, r); add.set(id, r); return true;
+    };
+    if (build) {
+      const r = planBuild(build.skills, build.attrs, ownedList());
+      for (const [id, rk] of r.plan) if (!give(id, rk)) break;
+    }
+    const weight = {};
+    for (const [id, r] of owned) { const c = typeOf(id).col; weight[c] = (weight[c] || 0) + typeOf(id).c * r; }
+    const dom = Object.keys(weight).sort((a, b) => weight[b] - weight[a])[0];
+    const prefer = new Set((build && build.attrs) || []);
+    while (budget > 0) {
+      let best = null, bs = null;
+      for (const id in NODE) {
+        const n = +id, t = typeOf(n);
+        if (!canTake(ownedList(), n) || t.c > budget) continue;
+        const sc = [t.col === dom ? 0 : 1, prefer.has(NODE[n].t) ? 0 : 1, t.c, n];
+        if (!bs || sc.some((v, i) => v !== bs[i] && (sc.slice(0, i).every((w, j) => w === bs[j]) && v < bs[i]))) { best = n; bs = sc; }
+      }
+      if (best === null) break;
+      give(best, (owned.get(best) || 0) + 1);
+    }
+    return [...add];
+  }
+
   const typeByEn = en => TYPE_BY_EN[normEn(en)];
-  window.SkillTree = { NODE, ADJ, BY_TYPE, COLORS, typeOf, color, describe, spent, canTake, canRemove, add, remove, planBuild, steps, typeByEn };
+  window.SkillTree = { NODE, ADJ, BY_TYPE, COLORS, typeOf, color, describe, spent, canTake, canRemove, add, remove, planBuild, steps, typeByEn, suite };
 })();
