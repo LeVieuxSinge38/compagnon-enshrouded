@@ -1,4 +1,4 @@
-// Compagnon Enshrouded — application Windows.
+﻿// Compagnon Enshrouded — application Windows.
 // Affiche le site du serveur de la maison dans une fenêtre, plus un overlay discret par-dessus le jeu.
 // Compilé avec le compilateur C# intégré à Windows (C# 5) : voir build.ps1. Aucune installation requise.
 using System;
@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.27.0")]
-[assembly: AssemblyFileVersion("2.2.27.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.28.0")]
+[assembly: AssemblyFileVersion("2.2.28.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
