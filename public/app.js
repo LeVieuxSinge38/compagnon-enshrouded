@@ -96,8 +96,8 @@ const state = {
   sel: { mat: null, prod: null }, craftQty: 1, craftStop: {}
 };
 // ---------- Sauvegarde : navigateur (mode local) ou serveur (mode comptes) ----------
-const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone', 'gearpick', 'gearnext', 'gemset'];
-const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {}, gearpick: {}, gearnext: {}, gemset: {} };
+const SYNC_KEYS = ['tree', 'game', 'level', 'roots', 'wells', 'freepts', 'list', 'flame', 'quiz', 'variant', 'mybuild', 'owned', 'locked', 'mapdone', 'gearpick', 'gearnext', 'gemset'];
+const DEFAULTS = { tree: [], game: null, level: 1, roots: 0, wells: 0, freepts: 0, list: {}, flame: 1, quiz: [], variant: {}, mybuild: null, owned: {}, locked: {}, mapdone: {}, gearpick: {}, gearnext: {}, gemset: {} };
 const srv = { on: false, user: null, last: '', timer: null, pending: null, inflight: false };
 // « il y a 3 min »
 const sinceFr = t => { if (!t) return ''; const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'à l\'instant' : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `le ${new Date(t).toLocaleDateString('fr-FR')}`; };
@@ -841,7 +841,9 @@ const gameSpent = () => state.game ? ST.spent(state.game.nodes) : 0;
 const levelPoints = () => Math.max(0, (Math.min(50, state.level) - 1) * 2);
 const manualBonus = () => Number(state.roots || 0) + Number(state.wells || 0) * 3;
 const bonusPoints = () => Math.max(manualBonus(), gameSpent() - levelPoints());
-const availPoints = () => levelPoints() + bonusPoints();
+// Points que le jeu affiche encore comme disponibles (non dépensés) : la sauvegarde ne les donne pas, on les saisit
+const freePoints = () => Math.max(0, Number(state.freepts) || 0);
+const availPoints = () => Math.max(levelPoints() + bonusPoints(), gameSpent() + freePoints());
 const spentPoints = () => ST.spent(state.tree);
 const FULL_VIEW = { x: -1130, y: -1130, w: 2260 }; // inclut les noms d'archétypes autour de l'anneau
 state.treeView = { ...FULL_VIEW };
@@ -911,7 +913,8 @@ VIEWS.planner = () => {
   const doneCount = steps.filter(isDone).length, next = steps.find(s => !isDone(s));
   const sugN = [...treeSuite()].reduce((a, [id, r]) => a + ST.typeOf(id).c * (r - (got.get(id) || 0)), 0);
   return `<h1><i class="gi gi-skills"></i> Arbre de compétences</h1>
-  ${sugN ? `<p class="sub"><b>${sugN} points à placer</b> — ce qui clignote est conseillé.</p>` : ''}
+  ${sugN ? `<p class="sub"><b>${sugN} points à placer</b> — ce qui clignote est conseillé.</p>`
+    : !freePoints() ? `<p class="sub">Il te reste des points en jeu ? <a href="#pFree" data-act="focusFree">Indique-les ici</a>.</p>` : ''}
   <p class="sub">L'arbre du jeu (version 1.0). <b>Clic</b> sur un nœud pour l'ajouter, <b>clic droit</b> pour le retirer, <b>molette</b> pour zoomer, <b>glisser</b> pour te déplacer. Charge un build pour voir tout le chemin : ce qui clignote est à débloquer.</p>
   <div class="tree-wrap">
     <div class="tree-box card">
@@ -945,15 +948,14 @@ VIEWS.planner = () => {
           <div><span>Niveau ${state.level} <span class="muted">(lu dans ta sauvegarde)</span></span><b>${levelPoints()} pts</b></div>
           <div><span>Racines de Brume et puits de l'élixir${bonusPoints() > manualBonus() ? ' <span class="muted">(déduit : tu as dépensé ' + gameSpent() + ' points)</span>' : ''}</span><b>${bonusPoints()} pts</b></div>
         </div>
-        <details class="small"><summary class="muted">Corriger à la main (points pas encore dépensés en jeu)</summary>
-          <div class="row" style="margin-top:6px"><label>Racines <input type="number" min="0" max="60" id="pRoots" value="${state.roots}"></label>
-          <label>Puits <input type="number" min="0" max="18" id="pWells" value="${state.wells}"></label></div>
-          <p class="muted" style="margin:4px 0 0">Utile seulement si le jeu t'affiche des points « disponibles » non dépensés.</p></details>`
+        <label class="small">Points encore disponibles en jeu <input type="number" min="0" max="212" id="pFree" value="${freePoints()}"></label>
+        <p class="small muted" style="margin:0">Le chiffre de points non dépensés que le jeu t'affiche : la sauvegarde ne le contient pas.</p>`
         : `<div class="row small">
           <label>Niveau <input type="number" min="1" max="50" id="pLevel" value="${state.level}"></label>
           <label>Racines <input type="number" min="0" max="60" id="pRoots" value="${state.roots}"></label>
           <label>Puits <input type="number" min="0" max="18" id="pWells" value="${state.wells}"></label>
-        </div>`}
+        </div>
+        <label class="small">Points encore disponibles en jeu <input type="number" min="0" max="212" id="pFree" value="${freePoints()}"></label>`}
         <div class="row" style="align-items:baseline"><span class="pts">${spent}</span><span class="muted">/ ${avail} points disponibles</span></div>
         <div class="bar ${spent > avail ? 'over' : ''}"><i style="width:${Math.min(100, spent / Math.max(1, avail) * 100)}%"></i></div>
         <p class="small muted" style="margin:0">2 pts par niveau · 1 par Racine de Brume · 3 par Puits de l'élixir (max 212 au niveau 50).</p>
@@ -1008,6 +1010,7 @@ ACTIONS.planFromGame = () => {
   if (state.tree.length && !confirm('Remplacer ton plan par les compétences que ton personnage a en jeu ?')) return;
   state.tree = state.game.nodes.slice(); state.treeSel = null; toast('Ton arbre reprend tes compétences en jeu'); render();
 };
+ACTIONS.focusFree = (a, el, e) => { if (e) e.preventDefault(); const f = $('#pFree'); if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); } };
 ACTIONS.treeZoom = f => { const v = state.treeView, c = { x: v.x + v.w / 2, y: v.y + v.w / 2 }, w = v.w * Number(f); treeSetView({ x: c.x - w / 2, y: c.y - w / 2, w }); };
 ACTIONS.treeFit = () => treeSetView({ ...FULL_VIEW });
 ACTIONS.treeFocus = id => {
@@ -1024,7 +1027,8 @@ ACTIONS.copyPlan = () => {
 AFTER.planner = () => {
   const num = (sel, key) => $(sel).addEventListener('change', e => { state[key] = Math.max(0, Number(e.target.value) || 0); render(); });
   if ($('#pLevel')) num('#pLevel', 'level');
-  num('#pRoots', 'roots'); num('#pWells', 'wells');
+  if ($('#pRoots')) { num('#pRoots', 'roots'); num('#pWells', 'wells'); }
+  num('#pFree', 'freepts');
   $('#pBuild').addEventListener('change', e => e.target.value && ACTIONS.applyBuild(e.target.value));
   const sf = $('#saveFile');
   if (sf) sf.addEventListener('change', async () => { const f = sf.files[0]; if (f) ingestSave(new Uint8Array(await f.arrayBuffer()), f.name, f.lastModified, true); });

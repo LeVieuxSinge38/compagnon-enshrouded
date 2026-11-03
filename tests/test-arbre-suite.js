@@ -33,3 +33,17 @@ assert(/class="tn todo"/.test(svg), 'des nœuds clignotent (todo)');
 vm.runInContext(`state.game.nodes = []`, ctx);
 assert.strictEqual(J(`[...treeSuite()]`).length, 0);
 console.log('ok —', sug.length, 'nœuds conseillés,', total, '/ 141 points');
+
+// Constat réel : 141 points dépensés en jeu, niveau 33, racines = puits = 0, le jeu affiche 6 points disponibles
+const full2 = J(`SkillTree.planBuild(BUILDS.flatMap(b => b.skills), BUILDS[0].attrs, []).plan`);
+let plan141 = [], p141 = 0;
+for (const [id, r] of full2) { const c = J(`SkillTree.typeOf(${id}).c`); let k = 0; while (k < r && p141 + c * (k + 1) <= 141) k++; if (k) { plan141.push([id, k]); p141 += c * k; } if (k < r) break; }
+vm.runInContext(`state.level = 33; state.roots = 0; state.wells = 0; state.freepts = 0; state.tree = ${JSON.stringify(plan141)}; state.game = { level: 33, nodes: ${JSON.stringify(plan141)} };`, ctx);
+assert.strictEqual(J(`gameSpent()`), p141);
+console.log('dépensés', p141);
+assert.strictEqual(J(`[...treeSuite()]`).length, 0, 'freepts=0 : rien ne clignote');
+vm.runInContext(`state.freepts = 6`, ctx);
+assert.strictEqual(J(`availPoints()`), p141 + 6, 'avail = dépensés + libres');
+assert(J(`[...treeSuite()]`).length > 0, 'freepts=6 : suite conseillée');
+assert(/class="tn todo"/.test(J(`treeSvg()`)), 'freepts=6 : ça clignote');
+console.log('ok — freepts', p141, '+ 6 =', p141 + 6);
