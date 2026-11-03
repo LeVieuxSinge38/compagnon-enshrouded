@@ -26,8 +26,8 @@ using System.IO.Compression;
 [assembly: AssemblyTitle("Compagnon Enshrouded")]
 [assembly: AssemblyProduct("Compagnon Enshrouded")]
 [assembly: AssemblyDescription("Compagnon Enshrouded : builds, ressources, overlay en jeu")]
-[assembly: AssemblyVersion("2.2.25.0")]
-[assembly: AssemblyFileVersion("2.2.25.0")] // garder identique à AssemblyVersion
+[assembly: AssemblyVersion("2.2.26.0")]
+[assembly: AssemblyFileVersion("2.2.26.0")] // garder identique à AssemblyVersion
 
 namespace Compagnon
 {
