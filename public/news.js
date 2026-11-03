@@ -58,7 +58,9 @@
       return { gid: String(n.gid), title: n.title, date: n.date, url: `https://store.steampowered.com/news/app/1203620/view/${n.gid}`,
         image: img ? img.src : 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1203620/header.jpg', blocks };
     });
-    await translateNews(items, fetchText);
+    const r = await translateNews(items, fetchText);
+    // Traduction incomplète : on garde l'affichage mais on ne le met pas en cache, pour réessayer au prochain lancement
+    if (r && r.frFailed) return items;
     writeCache(items);
     return items;
   }
@@ -69,9 +71,16 @@
   const GTX = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fr&dt=t';
 
   async function gtx(text, fetchText) {
-    const raw = await fetchText(GTX, { method: 'POST', body: 'q=' + encodeURIComponent(text) });
-    const data = JSON.parse(raw);
-    return ((data[0] || []).map(s => s[0] || '')).join('');
+    for (let i = 0; i < 3; i++) {
+      try {
+        const raw = await fetchText(GTX, { method: 'POST', body: 'q=' + encodeURIComponent(text) });
+        const data = JSON.parse(raw);
+        return ((data[0] || []).map(s => s[0] || '')).join('');
+      } catch (e) {
+        if (i === 2) throw e;
+        await new Promise(r => setTimeout(r, i === 0 ? 1500 : 4000));
+      }
+    }
   }
 
   // Traduit une liste de textes d'une ligne en regroupant les envois (une ligne par texte)
@@ -79,19 +88,46 @@
     const out = [];
     for (let i = 0; i < texts.length;) {
       let j = i, len = 0;
-      while (j < texts.length && (j === i || len + texts[j].length < 3500)) len += texts[j++].length + 1;
+      while (j < texts.length && (j === i || len + texts[j].length < 1800)) len += texts[j++].length + 1;
       const part = texts.slice(i, j);
-      const lines = (await gtx(part.join('\n'), fetchText)).split('\n').map(s => s.trim());
+      let lines;
+      try {
+        const result = await gtx(part.join('\n'), fetchText);
+        lines = result.split('\n').map(s => s.trim());
+      } catch (e) {
+        // Si échec, traduire chaque texte individuellement
+        lines = [];
+        for (const t of part) {
+          lines.push((await gtx(t, fetchText)).trim()); // un échec remonte : l'annonce reste en anglais et sera réessayée
+          await new Promise(r => setTimeout(r, 600));
+        }
+      }
       if (lines.length === part.length) out.push(...lines);
       else for (const t of part) out.push((await gtx(t, fetchText)).trim());
       i = j;
+      if (i < texts.length) await new Promise(r => setTimeout(r, 600));
     }
     return out;
   }
 
   // Vocabulaire du jeu en français (Google traduit « Shroud » par « Linceul », le jeu dit « Brume »)
-  const GAME_FR = [[/\b(du|au) Linceul\b/gi, (_, a) => a.toLowerCase() === 'du' ? 'de la Brume' : 'à la Brume'], [/\ble Linceul\b/g, 'la Brume'], [/\bLe Linceul\b/g, 'La Brume'],
-    [/\b[Ll]inceul\b/g, 'Brume'], [/\bd['’]Em?bervale\b/g, 'de Valdebraise'], [/\bEm?bervale\b/g, 'Valdebraise']];
+  const GAME_FR = [
+    [/\b(du|au) Linceul\b/gi, (_, a) => a.toLowerCase() === 'du' ? 'de la Brume' : 'à la Brume'],
+    [/\ble Linceul\b/g, 'la Brume'],
+    [/\bLe Linceul\b/g, 'La Brume'],
+    [/\b[Ll]inceul\b/g, 'Brume'],
+    [/\bd['’]Em?bervale\b/g, 'de Valdebraise'],
+    [/\bEm?bervale\b/g, 'Valdebraise'],
+    [/\b([Gg])rand(s)? sanctuaire(s)? de la Flamme/g, '$1rand$2 mausolée$3 de Flamme'],
+    [/\bSanctuaire(s)? de la Flamme/g, 'Mausolée$1 de Flamme'], [/\bsanctuaire(s)? de la Flamme/g, 'mausolée$1 de Flamme'],
+    [/\bFlèche(s)? ancienne(s)?/g, 'Tour$1 des Anciens'], [/\bflèche(s)? ancienne(s)?/g, 'tour$1 des Anciens'],
+    [/\bFlame Shrine\b/g, 'Mausolée de Flamme'],
+    [/\bRevelwood\b/g, 'Bois envoûtés'],
+    [/\bFell\b/g, 'Déchus'],
+    [/\bHollow\b/g, 'Creux'],
+    [/\bAncient Spire\b/g, 'Tour des Anciens'],
+    [/\bShroud\b/g, 'Brume']
+  ];
   const frGame = t => GAME_FR.reduce((s, [re, by]) => s.replace(re, by), t);
 
   // --- Lecture / écriture du cache de traduction (localStorage) ---
@@ -111,25 +147,40 @@
   async function translateNews(items, fetchText) {
     const cache = readFrCache();
     let changed = false;
+    let frFailed = false;
     for (const n of items) {
       const texts = [n.title, ...n.blocks.filter(b => b.t !== 'img').map(b => b.text)];
       if (!cache[n.gid] || cache[n.gid].length !== texts.length) {
-        try { cache[n.gid] = await translateAll(texts, fetchText); changed = true; } catch (e) { console.warn('Traduction des actualités impossible :', e.message); break; }
+        try {
+          const translations = await translateAll(texts, fetchText);
+          cache[n.gid] = translations;
+          changed = true;
+        } catch (e) {
+          console.warn('Traduction des actualités impossible :', e.message);
+          frFailed = true;
+          // Continuer avec les autres annonces
+        }
       }
-      const fr = cache[n.gid].map(frGame);
-      n.fr = { title: fr[0], texts: fr.slice(1) };
+      if (cache[n.gid]) {
+        const fr = cache[n.gid].map(frGame);
+        n.fr = { title: fr[0], texts: fr.slice(1) };
+      } else {
+        n.frFailed = true;
+      }
     }
     if (changed) {
       const keep = new Set(items.map(n => n.gid)); // on ne garde que les annonces encore affichées
       for (const k of Object.keys(cache)) if (!keep.has(k)) delete cache[k];
       writeFrCache(cache);
     }
+    return { frFailed };
   }
 
   // --- API publique ---
   window.News = {
     load(fetchText) {
       return steamNews(fetchText);
-    }
+    },
+    _test: { translateNews, frGame, bbBlocks }
   };
 })();

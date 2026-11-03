@@ -233,7 +233,7 @@ function newsHtml() {
   if (state.news === 'loading') return '<div class="card muted">Chargement des actualités…</div>';
   if (state.news === 'error' || !state.news.length) return '<div class="card muted">Impossible de récupérer les actualités pour le moment (le serveur n\'arrive pas à joindre Steam).</div>';
   return state.news.map(n => {
-    const en = state.newsEn[n.gid] || !n.fr, title0 = n.title;
+    const en = state.newsEn[n.gid] || !n.fr, title0 = n.title, noFr = n.frFailed || !n.fr;
     if (!en) { // version française : chaque texte est remplacé par sa traduction (les images restent à leur place)
       let k = 0;
       n = { ...n, title: n.fr.title, blocks: n.blocks.map(b => b.t === 'img' ? b : { ...b, text: n.fr.texts[k++] || b.text, en: b.text }) };
@@ -250,6 +250,7 @@ function newsHtml() {
         <div class="row">
           ${blocks.length > 6 || n.blocks.length > blocks.length ? `<button class="btn sm" data-act="newsToggle" data-arg="${esc(n.gid)}">${open ? 'Réduire' : 'Lire la suite'}</button>` : ''}
           ${n.fr ? `<button class="btn sm ghost" data-act="newsLang" data-arg="${esc(n.gid)}">${en ? '🇫🇷 Traduction française' : '🇬🇧 Texte original'}</button>` : ''}
+          ${noFr ? '<span class="small muted">Traduction indisponible, nouvel essai plus tard.</span>' : ''}
           <a class="small" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">Voir sur Steam ↗</a>
         </div>
       </div></article>`;
