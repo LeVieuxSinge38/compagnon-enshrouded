@@ -46,9 +46,11 @@
   }
 
   // --- Chargement des annonces Steam ---
-  async function steamNews(fetchText) {
+  const RETRY_DELAYS = [30e3, 120e3, 120e3]; // nouvelles tentatives de traduction dans la même session
+  async function steamNews(fetchText, onUpdate, delays = RETRY_DELAYS) {
     const cache = readCache();
-    if (cache.items && Date.now() - cache.at < 3600e3) return cache.items;
+    // Le cache n'est valable que si toutes les annonces sont traduites
+    if (cache.items && cache.items.every(n => n.fr) && Date.now() - cache.at < 3600e3) return cache.items;
     const raw = await fetchText(STEAM_NEWS);
     const data = JSON.parse(raw);
     const items = (data.appnews.newsitems || []).map(n => {
@@ -59,10 +61,25 @@
         image: img ? img.src : 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1203620/header.jpg', blocks };
     });
     const r = await translateNews(items, fetchText);
-    // Traduction incomplète : on garde l'affichage mais on ne le met pas en cache, pour réessayer au prochain lancement
-    if (r && r.frFailed) return items;
+    // Traduction incomplète : on garde l'affichage, sans cache, et on réessaie plus tard dans la session
+    if ((r && r.frFailed) || items.some(n => !n.fr)) {
+      retryTranslate(items, fetchText, onUpdate, delays);
+      return items;
+    }
     writeCache(items);
     return items;
+  }
+
+  function retryTranslate(items, fetchText, onUpdate, delays) {
+    if (!delays.length) return;
+    setTimeout(async () => {
+      let r = null;
+      try { r = await translateNews(items, fetchText); } catch (e) { /* on réessaiera */ }
+      if (r && !r.frFailed && items.every(n => n.fr)) {
+        writeCache(items);
+        if (onUpdate) onUpdate(items);
+      } else retryTranslate(items, fetchText, onUpdate, delays.slice(1));
+    }, delays[0]);
   }
 
   // --- Traduction française des annonces (Google Traduction, texte public uniquement) ---
@@ -162,6 +179,7 @@
         }
       }
       if (cache[n.gid]) {
+        delete n.frFailed;
         const fr = cache[n.gid].map(frGame);
         n.fr = { title: fr[0], texts: fr.slice(1) };
       } else {
@@ -178,8 +196,8 @@
 
   // --- API publique ---
   window.News = {
-    load(fetchText) {
-      return steamNews(fetchText);
+    load(fetchText, onUpdate, delays) {
+      return steamNews(fetchText, onUpdate, delays);
     },
     _test: { translateNews, frGame, bbBlocks }
   };

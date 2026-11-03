@@ -205,7 +205,7 @@ state.news = null; state.newsOpen = {}; state.newsEn = {};
 async function loadNews() {
   state.news = 'loading';
   try {
-    if (LOCAL) state.news = await News.load(Local.hostFetch);
+    if (LOCAL) state.news = await News.load(Local.hostFetch, items => { state.news = items; if (state.view === 'home') render(); });
     else {
       const r = await fetch('/api/news', { credentials: 'same-origin' });
       if (!r.ok) throw new Error();
