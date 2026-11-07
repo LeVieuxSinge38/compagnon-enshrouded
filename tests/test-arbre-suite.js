@@ -40,3 +40,15 @@ assert(takeable(t), 'toutes les cases todo sont prenables avec les nœuds du jeu
 const ch = J(`(() => { for (const id in SkillTree.NODE) { if (SkillTree.NODE[id].base) continue; const a = SkillTree.ADJ[id].filter(n => SkillTree.NODE[n].base); if (a.length) { const b = SkillTree.ADJ[id].find(n => n != a[0] && !SkillTree.NODE[n].base && !SkillTree.ADJ[n].some(m => SkillTree.NODE[m].base)); if (b) return [a[0], +id, b]; } } })()`);
 assert(!J(`SkillTree.canTake([], ${ch[2]})`) && J(`SkillTree.canTake([[${ch[1]}, 1]], ${ch[2]})`), 'chaîne : le suivant n\'est prenable qu\'après le précédent');
 console.log('ok — sans freepts', p141);
+// Build guardian entièrement pris : la suite reste dans la couleur dominante (+ attributs du build)
+{
+  const g = J(`SkillTree.planBuild([...BUILDS.find(b => b.id === 'guardian').skills, ...UNIVERSAL], BUILDS.find(b => b.id === 'guardian').attrs, []).plan`);
+  vm.runInContext(`state.mybuild = 'guardian'; state.level = 60; state.roots = 0; state.wells = 0; state.freepts = 0; state.tree = ${JSON.stringify(g)}; state.game = { level: 60, nodes: ${JSON.stringify(g)} };`, ctx);
+  const w = {}; for (const [id, r] of g) { const c = J(`SkillTree.typeOf(${id})`); w[c.col] = (w[c.col] || 0) + c.c * r; }
+  const dom = Object.keys(w).sort((a, b) => w[b] - w[a])[0];
+  const attrs = J(`BUILDS.find(b => b.id === 'guardian').attrs`);
+  const tt = todoIds(J(`treeSvg()`));
+  assert(tt.length >= 1 && takeable(tt), 'build fini : des cases prenables clignotent');
+  for (const id of tt) assert(J(`SkillTree.typeOf(${id}).col`) === dom || attrs.includes(J(`SkillTree.NODE[${id}].t`)), 'case ' + id + ' hors couleur dominante');
+  console.log('build fini ok', tt.length, 'cases,', dom);
+}

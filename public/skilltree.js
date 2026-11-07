@@ -143,7 +143,6 @@
       const r = planBuild(build.skills, build.attrs, ownedList());
       for (const [id, rk] of r.plan) if (!give(id, rk)) break;
     }
-    if (noFill) return [...add];
     const weight = {};
     for (const [id, r] of owned) { const c = typeOf(id).col; weight[c] = (weight[c] || 0) + typeOf(id).c * r; }
     const dom = Object.keys(weight).sort((a, b) => weight[b] - weight[a])[0];
@@ -153,6 +152,7 @@
       for (const id in NODE) {
         const n = +id, t = typeOf(n);
         if (!canTake(ownedList(), n) || t.c > budget) continue;
+        if (noFill && t.col !== dom && !prefer.has(NODE[n].t)) continue; // remplissage restreint : couleur dominante + attributs du build
         const sc = [t.col === dom ? 0 : 1, prefer.has(NODE[n].t) ? 0 : 1, t.c, n];
         if (!bs || sc.some((v, i) => v !== bs[i] && (sc.slice(0, i).every((w, j) => w === bs[j]) && v < bs[i]))) { best = n; bs = sc; }
       }
