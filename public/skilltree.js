@@ -127,7 +127,7 @@
   // Suite conseillée : quand le plan est fini et qu'il reste des points, retourne les nœuds à ajouter [[id, rang final]].
   // 1) la suite du build (compétences pas encore prises), 2) sinon les nœuds accessibles de la couleur dominante.
   // plan = [[id, rang]], got = Map(id -> rang débloqué en jeu), build = { skills, attrs } ou null. Ne retire jamais rien.
-  function suite(plan, got, avail, build) {
+  function suite(plan, got, avail, build, noFill) {
     const owned = planMap(plan);
     for (const [id, r] of got || []) if (NODE[id] && r > (owned.get(id) || 0)) owned.set(id, r);
     const ownedList = () => [...owned];
@@ -143,6 +143,7 @@
       const r = planBuild(build.skills, build.attrs, ownedList());
       for (const [id, rk] of r.plan) if (!give(id, rk)) break;
     }
+    if (noFill) return [...add];
     const weight = {};
     for (const [id, r] of owned) { const c = typeOf(id).col; weight[c] = (weight[c] || 0) + typeOf(id).c * r; }
     const dom = Object.keys(weight).sort((a, b) => weight[b] - weight[a])[0];

@@ -850,17 +850,23 @@ state.treeView = { ...FULL_VIEW };
 state.treeSel = null;
 state.treeQ = '';
 
-// Plan fini (tout débloqué en jeu) mais des points restent : on propose la suite du build, qui clignote aussi
+// Cases conseillées sans limite de points : plan du build + suite du build. Avec une sauvegarde chargée,
+// seules celles prenables tout de suite (reliées à un nœud débloqué en jeu) clignotent ; les autres sont en contour.
 function treeSuite() {
   if (!state.game || !state.tree.length) return new Map();
-  const got = gameMap();
-  if (state.tree.some(([id, r]) => (got.get(id) || 0) < r)) return new Map();
   const b = BUILDS.find(x => x.id === state.mybuild);
-  return new Map(ST.suite(state.tree, got, availPoints(), b ? { skills: [...b.skills, ...UNIVERSAL], attrs: b.attrs } : null));
+  return new Map(ST.suite(state.tree, gameMap(), Infinity, b ? { skills: [...b.skills, ...UNIVERSAL], attrs: b.attrs } : null, true));
+}
+
+function treeWanted() { // Map id -> rang voulu, pour les nœuds pas encore au rang voulu en jeu
+  const want = new Map(state.tree.map(p => [p[0], p[1]]));
+  if (state.game) for (const [id, r] of treeSuite()) want.set(id, Math.max(r, want.get(id) || 0));
+  return want;
 }
 
 function treeSvg() {
-  const sug = treeSuite(), plan = state.tree, have = new Map(plan.map(p => [p[0], p[1]])), avail = availPoints(), got = gameMap();
+  const want = treeWanted(), plan = state.tree, have = new Map(plan.map(p => [p[0], p[1]])), got = gameMap();
+  const gotList = [...got], loaded = !!state.game;
   const stepOf = {}; ST.steps(plan).forEach(s => { stepOf[s.id] = s; });
   const v = state.treeView, k = v.w / Math.max(400, state._svgW || 800); // unités SVG par pixel : numéros et textes gardent la même taille à l'écran
   const R = { small: 10, medium: 15, large: 21 };
@@ -881,16 +887,16 @@ function treeSvg() {
     const g = got.get(+id) || 0, done = g > 0 && (!s || g >= s.rank);
     // Tout le build est visible : à débloquer = couleur de la branche qui clignote ; débloqué (ex. 3/3) = vert
     let cls = 'tn';
-    if (g > 0 && g >= (rank || t.m)) cls += ' got';
-    else if (rank) cls += ' todo';
-    else if (sug.has(+id)) cls += ' todo';
+    const wr = want.get(+id) || 0;
+    if (g > 0 && g >= (wr || t.m)) cls += ' got';
+    else if (wr) cls += !loaded || ST.canTake(gotList, +id) ? ' todo' : ' later';
     if (nq && norm(t.n + ' ' + t.en).includes(nq)) cls += ' hit';
     if (state.treeSel === +id) cls += ' sel';
     nodes += `<g class="${cls}" data-node="${id}" transform="translate(${n.x} ${n.y})" style="--c:${ST.color(id)}">`
       + (n.base ? `<circle class="tn-base" r="${r + 6}"/>` : '')
       + `<circle class="tn-c" r="${r}"/>`
       + (cls.includes(' got') ? `<text class="tn-ok" y="${(r * 0.38).toFixed(1)}" style="font-size:${(r * 1.15).toFixed(1)}px">✓</text>` : '')
-      + (t.m > 1 && (g || rank || sug.has(+id)) ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${g}/${t.m}</text>` : '')
+      + (t.m > 1 && (g || wr) ? `<text class="tn-rank" y="${r + 14 * k}" style="font-size:${13 * k}px">${g}/${t.m}</text>` : '')
       + '</g>';
   }
   // Noms d'archétypes à l'extérieur de l'anneau (au-delà du nœud le plus éloigné), comme dans le jeu
@@ -911,10 +917,7 @@ VIEWS.planner = () => {
   const nowSteps = steps.filter(s => s.total <= avail).length;
   const isDone = s => (got.get(s.id) || 0) >= s.rank;
   const doneCount = steps.filter(isDone).length, next = steps.find(s => !isDone(s));
-  const sugN = [...treeSuite()].reduce((a, [id, r]) => a + ST.typeOf(id).c * (r - (got.get(id) || 0)), 0);
   return `<h1><i class="gi gi-skills"></i> Arbre de compétences</h1>
-  ${sugN ? `<p class="sub"><b>${sugN} points à placer</b> — ce qui clignote est conseillé.</p>`
-    : !freePoints() ? `<p class="sub">Il te reste des points en jeu ? <a href="#pFree" data-act="focusFree">Indique-les ici</a>.</p>` : ''}
   <p class="sub">L'arbre du jeu (version 1.0). <b>Clic</b> sur un nœud pour l'ajouter, <b>clic droit</b> pour le retirer, <b>molette</b> pour zoomer, <b>glisser</b> pour te déplacer. Charge un build pour voir tout le chemin : ce qui clignote est à débloquer.</p>
   <div class="tree-wrap">
     <div class="tree-box card">
@@ -927,7 +930,7 @@ VIEWS.planner = () => {
       ${treeSvg()}
       <div id="tTip" class="t-tip" hidden></div>
       <div class="tree-legend small">
-        <span><i class="lg lg-got"></i> Débloqué (ex. 3/3)</span><span><i class="lg lg-todo"></i> À débloquer : clignote, couleur de la branche</span>
+        <span><i class="lg lg-got"></i> Débloqué (ex. 3/3)</span><span><i class="lg lg-todo"></i> Clignote : prenable maintenant</span><span><i class="lg lg-later"></i> Contour : conseillé plus tard</span>
         <span><b>1/3</b> Rangs débloqués / rangs max</span>
       </div>
     </div>
@@ -947,15 +950,12 @@ VIEWS.planner = () => {
         ${state.game && state.game.level ? `<div class="pts-lines small">
           <div><span>Niveau ${state.level} <span class="muted">(lu dans ta sauvegarde)</span></span><b>${levelPoints()} pts</b></div>
           <div><span>Racines de Brume et puits de l'élixir${bonusPoints() > manualBonus() ? ' <span class="muted">(déduit : tu as dépensé ' + gameSpent() + ' points)</span>' : ''}</span><b>${bonusPoints()} pts</b></div>
-        </div>
-        <label class="small">Points encore disponibles en jeu <input type="number" min="0" max="212" id="pFree" value="${freePoints()}"></label>
-        <p class="small muted" style="margin:0">Le chiffre de points non dépensés que le jeu t'affiche : la sauvegarde ne le contient pas.</p>`
+        </div>`
         : `<div class="row small">
           <label>Niveau <input type="number" min="1" max="50" id="pLevel" value="${state.level}"></label>
           <label>Racines <input type="number" min="0" max="60" id="pRoots" value="${state.roots}"></label>
           <label>Puits <input type="number" min="0" max="18" id="pWells" value="${state.wells}"></label>
-        </div>
-        <label class="small">Points encore disponibles en jeu <input type="number" min="0" max="212" id="pFree" value="${freePoints()}"></label>`}
+        </div>`}
         <div class="row" style="align-items:baseline"><span class="pts">${spent}</span><span class="muted">/ ${avail} points disponibles</span></div>
         <div class="bar ${spent > avail ? 'over' : ''}"><i style="width:${Math.min(100, spent / Math.max(1, avail) * 100)}%"></i></div>
         <p class="small muted" style="margin:0">2 pts par niveau · 1 par Racine de Brume · 3 par Puits de l'élixir (max 212 au niveau 50).</p>
@@ -1010,7 +1010,6 @@ ACTIONS.planFromGame = () => {
   if (state.tree.length && !confirm('Remplacer ton plan par les compétences que ton personnage a en jeu ?')) return;
   state.tree = state.game.nodes.slice(); state.treeSel = null; toast('Ton arbre reprend tes compétences en jeu'); render();
 };
-ACTIONS.focusFree = (a, el, e) => { if (e) e.preventDefault(); const f = $('#pFree'); if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); } };
 ACTIONS.treeZoom = f => { const v = state.treeView, c = { x: v.x + v.w / 2, y: v.y + v.w / 2 }, w = v.w * Number(f); treeSetView({ x: c.x - w / 2, y: c.y - w / 2, w }); };
 ACTIONS.treeFit = () => treeSetView({ ...FULL_VIEW });
 ACTIONS.treeFocus = id => {
@@ -1028,7 +1027,6 @@ AFTER.planner = () => {
   const num = (sel, key) => $(sel).addEventListener('change', e => { state[key] = Math.max(0, Number(e.target.value) || 0); render(); });
   if ($('#pLevel')) num('#pLevel', 'level');
   if ($('#pRoots')) { num('#pRoots', 'roots'); num('#pWells', 'wells'); }
-  num('#pFree', 'freepts');
   $('#pBuild').addEventListener('change', e => e.target.value && ACTIONS.applyBuild(e.target.value));
   const sf = $('#saveFile');
   if (sf) sf.addEventListener('change', async () => { const f = sf.files[0]; if (f) ingestSave(new Uint8Array(await f.arrayBuffer()), f.name, f.lastModified, true); });

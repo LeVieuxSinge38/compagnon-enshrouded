@@ -20,20 +20,12 @@ console.log('plan', plan.length, 'nœuds', pts, 'points');
 vm.runInContext(`state.mybuild = 'guardian'; state.level = 33; state.tree = ${JSON.stringify(plan)}; state.game = { level: 33, nodes: ${JSON.stringify(plan)} }; state.roots = 77;`, ctx); // 64 (niveau 33) + 77 = 141
 assert.strictEqual(J(`availPoints()`), 141);
 const sug = J(`[...treeSuite()]`);
-assert(sug.length > 0, 'au moins un nœud à débloquer');
-const total = J(`SkillTree.spent([...[...gameMap()].concat([...treeSuite()].map(([i, r]) => [i, r])).reduce((m, [i, r]) => m.set(i, Math.max(m.get(i) || 0, r)), new Map()).entries()].map(x => x))`);
-assert(total <= 141, 'total prévu ≤ points dispo : ' + total);
-assert(total > pts, 'les points restants sont utilisés');
-// Reliés à l'arbre : chaque nœud conseillé touche un nœud débloqué/conseillé (ou est un départ)
-const have = new Set([...plan.map(p => p[0]), ...sug.map(p => p[0])]);
-for (const [id] of sug) assert(J(`SkillTree.NODE[${id}].base || SkillTree.ADJ[${id}].some(n => ${JSON.stringify([...have])}.includes(n))`), 'nœud ' + id + ' relié');
-const svg = J(`treeSvg()`);
-assert(/class="tn todo"/.test(svg), 'des nœuds clignotent (todo)');
-// Plan non fini : pas de suite
-vm.runInContext(`state.game.nodes = []`, ctx);
-assert.strictEqual(J(`[...treeSuite()]`).length, 0);
-console.log('ok —', sug.length, 'nœuds conseillés,', total, '/ 141 points');
-
+assert(sug.length > 0, 'au moins un nœud conseillé (suite sans limite de points)');
+// Plan non fini en jeu : plus de suite exigée, mais les cases prenables clignotent
+const todoIds = svg => [...svg.matchAll(/class="tn todo" data-node="(\d+)"/g)].map(m => +m[1]);
+const takeable = ids => ids.every(id => J(`SkillTree.canTake([...gameMap()], ${id})`));
+let t = todoIds(J(`treeSvg()`));
+assert(t.length >= 1 && takeable(t), 'des cases prenables clignotent');
 // Constat réel : 141 points dépensés en jeu, niveau 33, racines = puits = 0, le jeu affiche 6 points disponibles
 const full2 = J(`SkillTree.planBuild(BUILDS.flatMap(b => b.skills), BUILDS[0].attrs, []).plan`);
 let plan141 = [], p141 = 0;
@@ -41,9 +33,10 @@ for (const [id, r] of full2) { const c = J(`SkillTree.typeOf(${id}).c`); let k =
 vm.runInContext(`state.level = 33; state.roots = 0; state.wells = 0; state.freepts = 0; state.tree = ${JSON.stringify(plan141)}; state.game = { level: 33, nodes: ${JSON.stringify(plan141)} };`, ctx);
 assert.strictEqual(J(`gameSpent()`), p141);
 console.log('dépensés', p141);
-assert.strictEqual(J(`[...treeSuite()]`).length, 0, 'freepts=0 : rien ne clignote');
-vm.runInContext(`state.freepts = 6`, ctx);
-assert.strictEqual(J(`availPoints()`), p141 + 6, 'avail = dépensés + libres');
-assert(J(`[...treeSuite()]`).length > 0, 'freepts=6 : suite conseillée');
-assert(/class="tn todo"/.test(J(`treeSvg()`)), 'freepts=6 : ça clignote');
-console.log('ok — freepts', p141, '+ 6 =', p141 + 6);
+t = todoIds(J(`treeSvg()`));
+assert(t.length >= 1, 'freepts=0 : des cases clignotent quand même');
+assert(takeable(t), 'toutes les cases todo sont prenables avec les nœuds du jeu');
+// Chaîne a→b : b non prenable tant que a n'est pas pris
+const ch = J(`(() => { for (const id in SkillTree.NODE) { if (SkillTree.NODE[id].base) continue; const a = SkillTree.ADJ[id].filter(n => SkillTree.NODE[n].base); if (a.length) { const b = SkillTree.ADJ[id].find(n => n != a[0] && !SkillTree.NODE[n].base && !SkillTree.ADJ[n].some(m => SkillTree.NODE[m].base)); if (b) return [a[0], +id, b]; } } })()`);
+assert(!J(`SkillTree.canTake([], ${ch[2]})`) && J(`SkillTree.canTake([[${ch[1]}, 1]], ${ch[2]})`), 'chaîne : le suivant n\'est prenable qu\'après le précédent');
+console.log('ok — sans freepts', p141);

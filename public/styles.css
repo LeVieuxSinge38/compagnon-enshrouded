@@ -182,6 +182,8 @@ details > summary::-webkit-details-marker { display: none; }
 .tn-ok { fill: #fff; text-anchor: middle; font-weight: 800; pointer-events: none; }
 .tn.todo .tn-c { fill: var(--c); stroke: #fff; stroke-width: 3; opacity: 1; animation: tnBlink 1.6s ease-in-out infinite; }
 @keyframes tnBlink { 0%, 100% { fill-opacity: 1; filter: drop-shadow(0 0 10px var(--c)); } 50% { fill-opacity: .25; filter: none; } }
+.tn.later .tn-c { fill: none; stroke: var(--c); stroke-width: 3; opacity: .85; }
+.lg-later { background: transparent; border: 2px solid #c0504d; }
 .lg-todo { background: #c0504d; animation: lgBlink 1.6s ease-in-out infinite; }
 @keyframes lgBlink { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .tn.todo .tn-c, .lg-todo { animation: none; } }
